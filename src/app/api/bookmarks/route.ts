@@ -66,10 +66,73 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Ensure workspace exists
+    let workspace = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+    })
+
+    if (!workspace) {
+      // Create default workspace with a default user if it doesn't exist
+      let user = await prisma.user.findFirst()
+      if (!user) {
+        user = await prisma.user.create({
+          data: {
+            email: 'default@bookmark-manager.local',
+            passwordHash: 'placeholder',
+          },
+        })
+      }
+      workspace = await prisma.workspace.create({
+        data: {
+          id: workspaceId,
+          name: 'Default Workspace',
+          userId: user.id,
+        },
+      })
+    }
+
+    // Validate folderId if provided
+    if (folderId) {
+      const folderExists = await prisma.folder.findUnique({
+        where: { id: folderId },
+      })
+      if (!folderExists) {
+        return NextResponse.json(
+          { error: 'Folder not found' },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Validate tagIds if provided
+    if (tags && tags.length > 0) {
+      const existingTags = await prisma.tag.findMany({
+        where: { id: { in: tags } },
+      })
+      if (existingTags.length !== tags.length) {
+        return NextResponse.json(
+          { error: 'One or more tags not found' },
+          { status: 400 }
+        )
+      }
+    }
+
     // Ensure exactly one primary URL
-    const hasPrimary = urls.some((u: { isPrimary: boolean }) => u.isPrimary)
-    if (!hasPrimary) {
+    const primaryCount = urls.filter((u: { isPrimary: boolean }) => u.isPrimary).length
+    if (primaryCount === 0) {
       urls[0].isPrimary = true
+    } else if (primaryCount > 1) {
+      // If multiple primaries specified, only keep the first one
+      let foundFirst = false
+      urls.forEach((u: { isPrimary: boolean }) => {
+        if (u.isPrimary) {
+          if (foundFirst) {
+            u.isPrimary = false
+          } else {
+            foundFirst = true
+          }
+        }
+      })
     }
 
     const bookmark = await prisma.bookmark.create({

@@ -7,7 +7,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  
+
   try {
     const bookmark = await prisma.bookmark.findUnique({
       where: { id },
@@ -35,17 +35,58 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  
+
   try {
     const body = await request.json()
     const { title, description, folderId, tags, urls, archived } = body
 
+    // Validate bookmark exists
+    const existingBookmark = await prisma.bookmark.findUnique({
+      where: { id },
+    })
+
+    if (!existingBookmark) {
+      return NextResponse.json({ error: 'Bookmark not found' }, { status: 404 })
+    }
+
+    // Validate folderId if provided
+    if (folderId) {
+      const folderExists = await prisma.folder.findUnique({
+        where: { id: folderId },
+      })
+      if (!folderExists) {
+        return NextResponse.json({ error: 'Folder not found' }, { status: 400 })
+      }
+    }
+
+    // Validate tagIds if provided
+    if (tags && tags.length > 0) {
+      const existingTags = await prisma.tag.findMany({
+        where: { id: { in: tags } },
+      })
+      if (existingTags.length !== tags.length) {
+        return NextResponse.json({ error: 'One or more tags not found' }, { status: 400 })
+      }
+    }
+
     // If updating URLs, ensure exactly one is primary
     let urlsToUpdate = urls
     if (urls && urls.length > 0) {
-      const hasPrimary = urls.some((u: { isPrimary: boolean }) => u.isPrimary)
-      if (!hasPrimary) {
+      const primaryCount = urls.filter((u: { isPrimary: boolean }) => u.isPrimary).length
+      if (primaryCount === 0) {
         urls[0].isPrimary = true
+      } else if (primaryCount > 1) {
+        // If multiple primaries specified, only keep the first one
+        let foundFirst = false
+        urls.forEach((u: { isPrimary: boolean }) => {
+          if (u.isPrimary) {
+            if (foundFirst) {
+              u.isPrimary = false
+            } else {
+              foundFirst = true
+            }
+          }
+        })
       }
     }
 
@@ -57,7 +98,7 @@ export async function PUT(
     const bookmark = await prisma.bookmark.update({
       where: { id },
       data: {
-        ...(title && { title }),
+        ...(title !== undefined && { title }),
         ...(description !== undefined && { description }),
         ...(folderId !== undefined && { folderId: folderId || null }),
         ...(archived !== undefined && { archived }),
@@ -70,7 +111,7 @@ export async function PUT(
             })),
           },
         }),
-        ...(tags && {
+        ...(tags !== undefined && {
           tags: {
             deleteMany: {},
             create: tags.map((tagId: string) => ({ tagId })),
@@ -97,8 +138,17 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  
+
   try {
+    // Validate bookmark exists
+    const bookmark = await prisma.bookmark.findUnique({
+      where: { id },
+    })
+
+    if (!bookmark) {
+      return NextResponse.json({ error: 'Bookmark not found' }, { status: 404 })
+    }
+
     await prisma.bookmark.update({
       where: { id },
       data: { archived: true },

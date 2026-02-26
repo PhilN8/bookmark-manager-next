@@ -37,6 +37,44 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 })
     }
 
+    // Ensure workspace exists
+    let workspace = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+    })
+
+    if (!workspace) {
+      // Create default workspace with a default user if it doesn't exist
+      let user = await prisma.user.findFirst()
+      if (!user) {
+        user = await prisma.user.create({
+          data: {
+            email: 'default@bookmark-manager.local',
+            passwordHash: 'placeholder',
+          },
+        })
+      }
+      workspace = await prisma.workspace.create({
+        data: {
+          id: workspaceId,
+          name: 'Default Workspace',
+          userId: user.id,
+        },
+      })
+    }
+
+    // Validate parentId if provided
+    if (parentId) {
+      const parentExists = await prisma.folder.findUnique({
+        where: { id: parentId },
+      })
+      if (!parentExists) {
+        return NextResponse.json(
+          { error: 'Parent folder not found' },
+          { status: 400 }
+        )
+      }
+    }
+
     // Get the highest order number
     const lastFolder = await prisma.folder.findFirst({
       where: { workspaceId, parentId: parentId || null },
@@ -62,6 +100,7 @@ export async function POST(request: NextRequest) {
 }
 
 // PUT /api/folders - Update folder (reorder, rename)
+// Note: Prefer using PUT /api/folders/:id for RESTful operations
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
@@ -89,6 +128,7 @@ export async function PUT(request: NextRequest) {
 }
 
 // DELETE /api/folders - Delete a folder
+// Note: Prefer using DELETE /api/folders/:id for RESTful operations
 export async function DELETE(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const id = searchParams.get('id')

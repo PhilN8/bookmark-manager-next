@@ -32,6 +32,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 })
     }
 
+    // Ensure workspace exists
+    let workspace = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+    })
+
+    if (!workspace) {
+      // Create default workspace with a default user if it doesn't exist
+      let user = await prisma.user.findFirst()
+      if (!user) {
+        user = await prisma.user.create({
+          data: {
+            email: 'default@bookmark-manager.local',
+            passwordHash: 'placeholder',
+          },
+        })
+      }
+      workspace = await prisma.workspace.create({
+        data: {
+          id: workspaceId,
+          name: 'Default Workspace',
+          userId: user.id,
+        },
+      })
+    }
+
     const existingTag = await prisma.tag.findUnique({
       where: { workspaceId_name: { workspaceId, name } },
     })
@@ -56,6 +81,7 @@ export async function POST(request: NextRequest) {
 }
 
 // DELETE /api/tags - Delete a tag
+// Note: Prefer using DELETE /api/tags/:id for RESTful operations
 export async function DELETE(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const id = searchParams.get('id')
