@@ -8,7 +8,7 @@ interface ConfirmModalProps {
   message: string;
   confirmLabel?: string;
   cancelLabel?: string;
-  variant?: "default" | "danger";
+  variant?: "default" | "danger" | "success";
   icon?: "archive" | "restore" | "warning";
   onConfirm: () => void;
   onCancel: () => void;
@@ -55,6 +55,8 @@ export function ConfirmModal({
             className={`flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center ${
               variant === "danger"
                 ? "bg-red-100 dark:bg-red-950 text-red-500"
+                : variant === "success"
+                ? "bg-green-100 dark:bg-green-950 text-green-500"
                 : "bg-primary/10 text-primary"
             }`}
           >
@@ -79,6 +81,8 @@ export function ConfirmModal({
             className={`flex-1 px-4 py-2.5 rounded-xl font-medium transition-colors ${
               variant === "danger"
                 ? "bg-red-500 text-white hover:bg-red-600"
+                : variant === "success"
+                ? "bg-green-500 text-white hover:bg-green-600"
                 : "bg-primary text-primary-foreground hover:opacity-90"
             }`}
           >

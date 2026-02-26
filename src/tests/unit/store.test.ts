@@ -68,19 +68,19 @@ describe('Store', () => {
 
   describe('setters', () => {
     it('should set bookmarks', () => {
-      const mockBookmarks = [{ id: '1', title: 'Test' }] as any
+      const mockBookmarks = [{ id: '1', title: 'Test', description: null, folderId: null, workspaceId: 'test', archived: false, createdAt: '', updatedAt: '', urls: [], tags: [], folder: null }]
       useStore.getState().setBookmarks(mockBookmarks)
       expect(useStore.getState().bookmarks).toEqual(mockBookmarks)
     })
 
     it('should set folders', () => {
-      const mockFolders = [{ id: '1', name: 'Test Folder' }] as any
+      const mockFolders = [{ id: '1', name: 'Test Folder', parentId: null, order: 0, children: [] }]
       useStore.getState().setFolders(mockFolders)
       expect(useStore.getState().folders).toEqual(mockFolders)
     })
 
     it('should set tags', () => {
-      const mockTags = [{ id: '1', name: 'Test Tag' }] as any
+      const mockTags = [{ id: '1', name: 'Test Tag' }]
       useStore.getState().setTags(mockTags)
       expect(useStore.getState().tags).toEqual(mockTags)
     })

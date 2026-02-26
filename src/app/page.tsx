@@ -1,7 +1,20 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Search, Plus, Tag, Archive, Loader2, Bookmark, X, Check, Pencil, Trash2, FolderPlus, ArchiveRestore } from "lucide-react";
+import {
+  Search,
+  Plus,
+  Tag,
+  Archive,
+  Loader2,
+  Bookmark,
+  X,
+  Check,
+  Pencil,
+  Trash2,
+  FolderPlus,
+  ArchiveRestore,
+} from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useDebounce } from "@/lib/useDebounce";
@@ -29,16 +42,11 @@ export default function Home() {
     setSelectedTagId,
     searchQuery,
     setSearchQuery,
-  } = useStore()
-  
-  const debouncedSearch = useDebounce(searchQuery, 300)
-  
-  const {
-    showArchived,
-    setShowArchived,
-    isLoading,
-    setIsLoading,
   } = useStore();
+
+  const debouncedSearch = useDebounce(searchQuery, 300);
+
+  const { showArchived, setShowArchived, isLoading, setIsLoading } = useStore();
 
   const [initialLoad, setInitialLoad] = useState(true);
   const [confirmModal, setConfirmModal] = useState<{
@@ -72,23 +80,23 @@ export default function Home() {
       setIsLoading(false);
     }
   }, [
-    searchQuery,
     selectedFolderId,
     selectedTagId,
     showArchived,
     setBookmarks,
     setIsLoading,
+    debouncedSearch,
   ]);
 
-  const fetchFolders = async () => {
+  const fetchFolders = useCallback(async () => {
     const res = await fetch(`${API_BASE}/folders`);
     if (res.ok) setFolders(await res.json());
-  };
+  }, [setFolders]);
 
-  const fetchTags = async () => {
+  const fetchTags = useCallback(async () => {
     const res = await fetch(`${API_BASE}/tags`);
     if (res.ok) setTags(await res.json());
-  };
+  }, [setTags]);
 
   useEffect(() => {
     fetchBookmarks().then(() => setInitialLoad(false));
@@ -96,7 +104,7 @@ export default function Home() {
   useEffect(() => {
     fetchFolders();
     fetchTags();
-  }, []);
+  }, [fetchFolders, fetchTags]);
 
   const handleCreateFolder = async (name: string, parentId?: string) => {
     const res = await fetch(`${API_BASE}/folders`, {
@@ -105,7 +113,10 @@ export default function Home() {
       body: JSON.stringify({ name, parentId }),
     });
     if (res.ok) {
-      toast.success("Folder created", { description: `"${name}" has been added.`, icon: <FolderPlus className="w-4 h-4" /> });
+      toast.success("Folder created", {
+        description: `"${name}" has been added.`,
+        icon: <FolderPlus className="w-4 h-4" />,
+      });
       fetchFolders();
     }
   };
@@ -119,7 +130,10 @@ export default function Home() {
       body: JSON.stringify({ name: tagName }),
     });
     if (res.ok) {
-      toast.success("Tag created", { description: `"${tagName}" has been added.`, icon: <Tag className="w-4 h-4" /> });
+      toast.success("Tag created", {
+        description: `"${tagName}" has been added.`,
+        icon: <Tag className="w-4 h-4" />,
+      });
       setNewTagName("");
       setIsCreatingTag(false);
       fetchTags();
@@ -127,11 +141,14 @@ export default function Home() {
   };
 
   const handleDeleteTag = async (id: string) => {
-    const tag = tags.find(t => t.id === id);
+    const tag = tags.find((t) => t.id === id);
     if (!confirm("Delete this tag?")) return;
     const res = await fetch(`${API_BASE}/tags?id=${id}`, { method: "DELETE" });
     if (res.ok) {
-      toast.success("Tag deleted", { description: `"${tag?.name}" has been removed.`, icon: <Trash2 className="w-4 h-4" /> });
+      toast.error("Tag deleted", {
+        description: `"${tag?.name}" has been removed.`,
+        icon: <Trash2 className="w-4 h-4" />,
+      });
       fetchTags();
     }
   };
@@ -143,20 +160,26 @@ export default function Home() {
       body: JSON.stringify({ id, name }),
     });
     if (res.ok) {
-      toast.success("Folder renamed", { description: `"${name}" has been updated.`, icon: <Pencil className="w-4 h-4" /> });
+      toast.success("Folder renamed", {
+        description: `"${name}" has been updated.`,
+        icon: <Pencil className="w-4 h-4" />,
+      });
       fetchFolders();
     }
   };
 
   const handleDeleteFolder = async (id: string) => {
-    const folder = folders.find(f => f.id === id);
+    const folder = folders.find((f) => f.id === id);
     if (!confirm("Delete this folder? Bookmarks will be moved to root."))
       return;
     const res = await fetch(`${API_BASE}/folders?id=${id}`, {
       method: "DELETE",
     });
     if (res.ok) {
-      toast.success("Folder deleted", { description: `"${folder?.name}" has been removed.`, icon: <Trash2 className="w-4 h-4" /> });
+      toast.error("Folder deleted", {
+        description: `"${folder?.name}" has been removed.`,
+        icon: <Trash2 className="w-4 h-4" />,
+      });
       fetchFolders();
     }
   };
@@ -189,7 +212,13 @@ export default function Home() {
     if (res.ok) fetchBookmarks();
   };
 
-  const handleSubmitBookmark = async (data: any) => {
+  const handleSubmitBookmark = async (data: {
+    title: string;
+    description?: string;
+    folderId?: string | null;
+    urls: { url: string; isPrimary: boolean; label?: string }[];
+    tags: string[];
+  }) => {
     const url = editingBookmark
       ? `${API_BASE}/bookmarks/${editingBookmark.id}`
       : `${API_BASE}/bookmarks`;
@@ -200,10 +229,12 @@ export default function Home() {
       body: JSON.stringify(data),
     });
     if (res.ok) {
-      toast.success(
-        editingBookmark ? "Bookmark updated" : "Bookmark created",
-        { description: editingBookmark ? `"${data.title}" has been updated.` : `"${data.title}" has been added.`, icon: <Check className="w-4 h-4" /> }
-      );
+      toast.success(editingBookmark ? "Bookmark updated" : "Bookmark created", {
+        description: editingBookmark
+          ? `"${data.title}" has been updated.`
+          : `"${data.title}" has been added.`,
+        icon: <Check className="w-4 h-4" />,
+      });
       setShowForm(false);
       setEditingBookmark(null);
       fetchBookmarks();
@@ -211,7 +242,7 @@ export default function Home() {
   };
 
   const handleDeleteBookmark = async (id: string) => {
-    const bookmark = bookmarks.find(b => b.id === id);
+    const bookmark = bookmarks.find((b) => b.id === id);
     setConfirmModal({
       isOpen: true,
       type: "archive",
@@ -221,7 +252,7 @@ export default function Home() {
   };
 
   const handleRestoreBookmark = async (id: string) => {
-    const bookmark = bookmarks.find(b => b.id === id);
+    const bookmark = bookmarks.find((b) => b.id === id);
     setConfirmModal({
       isOpen: true,
       type: "restore",
@@ -237,7 +268,10 @@ export default function Home() {
         method: "DELETE",
       });
       if (res.ok) {
-        toast.success("Bookmark archived", { description: `"${confirmModal.bookmarkTitle}" has been archived.`, icon: <Archive className="w-4 h-4" /> });
+        toast.error("Bookmark archived", {
+          description: `"${confirmModal.bookmarkTitle}" has been archived.`,
+          icon: <Archive className="w-4 h-4" />,
+        });
         fetchBookmarks();
       }
     } else {
@@ -247,11 +281,19 @@ export default function Home() {
         body: JSON.stringify({ archived: false }),
       });
       if (res.ok) {
-        toast.success("Bookmark restored", { description: `"${confirmModal.bookmarkTitle}" has been restored.`, icon: <ArchiveRestore className="w-4 h-4" /> });
+        toast.success("Bookmark restored", {
+          description: `"${confirmModal.bookmarkTitle}" has been restored.`,
+          icon: <ArchiveRestore className="w-4 h-4" />,
+        });
         fetchBookmarks();
       }
     }
-    setConfirmModal({ isOpen: false, type: "archive", bookmarkId: "", bookmarkTitle: "" });
+    setConfirmModal({
+      isOpen: false,
+      type: "archive",
+      bookmarkId: "",
+      bookmarkTitle: "",
+    });
   };
 
   if (initialLoad) return <LoadingScreen />;
@@ -433,7 +475,10 @@ export default function Home() {
                   bookmark={bookmark}
                   folders={folders.map((f) => ({ id: f.id, name: f.name }))}
                   tags={tags}
-                  onEdit={(bookmark) => { setEditingBookmark(bookmark); setShowForm(true); }}
+                  onEdit={(bookmark) => {
+                    setEditingBookmark(bookmark);
+                    setShowForm(true);
+                  }}
                   onDelete={handleDeleteBookmark}
                   onRestore={handleRestoreBookmark}
                   onMoveFolder={handleMoveFolder}
@@ -463,17 +508,28 @@ export default function Home() {
 
       <ConfirmModal
         isOpen={confirmModal.isOpen}
-        title={confirmModal.type === "archive" ? "Archive bookmark?" : "Restore bookmark?"}
+        title={
+          confirmModal.type === "archive"
+            ? "Archive bookmark?"
+            : "Restore bookmark?"
+        }
         message={
           confirmModal.type === "archive"
             ? `Are you sure you want to archive "${confirmModal.bookmarkTitle}"? You can restore it later from the archived view.`
             : `Are you sure you want to restore "${confirmModal.bookmarkTitle}"? It will be moved back to your active bookmarks.`
         }
         confirmLabel={confirmModal.type === "archive" ? "Archive" : "Restore"}
-        variant="danger"
+        variant={confirmModal.type === "archive" ? "danger" : "success"}
         icon={confirmModal.type === "archive" ? "archive" : "restore"}
         onConfirm={handleConfirmModal}
-        onCancel={() => setConfirmModal({ isOpen: false, type: "archive", bookmarkId: "", bookmarkTitle: "" })}
+        onCancel={() =>
+          setConfirmModal({
+            isOpen: false,
+            type: "archive",
+            bookmarkId: "",
+            bookmarkTitle: "",
+          })
+        }
       />
     </div>
   );

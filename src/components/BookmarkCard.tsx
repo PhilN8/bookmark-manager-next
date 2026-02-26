@@ -1,25 +1,41 @@
-'use client'
+"use client";
 
-import { Link, Edit, Trash2, ExternalLink, Folder, Tag, ArchiveRestore } from 'lucide-react'
-import { Bookmark } from '@/lib/types'
-import { cn } from '@/lib/utils'
+import {
+  Link,
+  Edit,
+  Trash2,
+  ExternalLink,
+  Folder,
+  ArchiveRestore,
+} from "lucide-react";
+import { Bookmark } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
-import { useState } from 'react'
+import { useState } from "react";
 
 interface BookmarkCardProps {
-  bookmark: Bookmark
-  folders: { id: string; name: string }[]
-  tags: { id: string; name: string }[]
-  onEdit: (bookmark: Bookmark) => void
-  onDelete: (id: string) => void
-  onRestore?: (id: string) => void
-  onMoveFolder: (bookmarkId: string, folderId: string) => void
-  onToggleTag: (bookmarkId: string, tagId: string) => void
+  bookmark: Bookmark;
+  folders: { id: string; name: string }[];
+  tags: { id: string; name: string }[];
+  onEdit: (bookmark: Bookmark) => void;
+  onDelete: (id: string) => void;
+  onRestore?: (id: string) => void;
+  onMoveFolder: (bookmarkId: string, folderId: string) => void;
+  onToggleTag: (bookmarkId: string, tagId: string) => void;
 }
 
-export function BookmarkCard({ bookmark, folders, tags, onEdit, onDelete, onRestore, onMoveFolder, onToggleTag }: BookmarkCardProps) {
-  const primaryUrl = bookmark.urls.find((u) => u.isPrimary) || bookmark.urls[0]
-  const [showFolderSelect, setShowFolderSelect] = useState(false)
+export function BookmarkCard({
+  bookmark,
+  folders,
+  tags,
+  onEdit,
+  onDelete,
+  onRestore,
+  onMoveFolder,
+  onToggleTag,
+}: BookmarkCardProps) {
+  const primaryUrl = bookmark.urls.find((u) => u.isPrimary) || bookmark.urls[0];
+  const [showFolderSelect, setShowFolderSelect] = useState(false);
 
   return (
     <div className="group bg-card border border-border rounded-xl p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
@@ -34,7 +50,7 @@ export function BookmarkCard({ bookmark, folders, tags, onEdit, onDelete, onRest
             </p>
           )}
         </div>
-        
+
         <div className="flex items-center gap-1 transition-opacity duration-200">
           {primaryUrl && (
             <a
@@ -78,8 +94,13 @@ export function BookmarkCard({ bookmark, folders, tags, onEdit, onDelete, onRest
         <div className="mt-4 space-y-1.5">
           {bookmark.urls.slice(0, 3).map((url) => (
             <div key={url.id} className="flex items-center gap-2 text-sm">
-              <Link className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-              <span className={cn('truncate text-muted-foreground', url.isPrimary && 'text-foreground font-medium')}>
+              <Link className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <span
+                className={cn(
+                  "truncate text-muted-foreground",
+                  url.isPrimary && "text-foreground font-medium",
+                )}
+              >
                 {url.label || url.url}
               </span>
               {url.isPrimary && (
@@ -90,7 +111,9 @@ export function BookmarkCard({ bookmark, folders, tags, onEdit, onDelete, onRest
             </div>
           ))}
           {bookmark.urls.length > 3 && (
-            <p className="text-xs text-muted-foreground">+{bookmark.urls.length - 3} more</p>
+            <p className="text-xs text-muted-foreground">
+              +{bookmark.urls.length - 3} more
+            </p>
           )}
         </div>
       )}
@@ -114,7 +137,7 @@ export function BookmarkCard({ bookmark, folders, tags, onEdit, onDelete, onRest
           <span>{bookmark.folder.name}</span>
         </div>
       )}
-      
+
       {/* Quick Folder Change */}
       <div className="mt-3 relative">
         <button
@@ -122,20 +145,26 @@ export function BookmarkCard({ bookmark, folders, tags, onEdit, onDelete, onRest
           className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           <Folder className="w-3 h-3" />
-          <span>{bookmark.folder ? 'Move to...' : 'Add to folder...'}</span>
+          <span>{bookmark.folder ? "Move to..." : "Add to folder..."}</span>
         </button>
         {showFolderSelect && (
           <div className="absolute z-10 mt-1 py-1 bg-card border border-border rounded-lg shadow-lg min-w-32">
             <button
-              onClick={() => { onMoveFolder(bookmark.id, ''); setShowFolderSelect(false) }}
+              onClick={() => {
+                onMoveFolder(bookmark.id, "");
+                setShowFolderSelect(false);
+              }}
               className="w-full px-3 py-1.5 text-left text-xs hover:bg-secondary"
             >
               No folder
             </button>
-            {folders.map(folder => (
+            {folders.map((folder) => (
               <button
                 key={folder.id}
-                onClick={() => { onMoveFolder(bookmark.id, folder.id); setShowFolderSelect(false) }}
+                onClick={() => {
+                  onMoveFolder(bookmark.id, folder.id);
+                  setShowFolderSelect(false);
+                }}
                 className="w-full px-3 py-1.5 text-left text-xs hover:bg-secondary"
               >
                 {folder.name}
@@ -144,26 +173,26 @@ export function BookmarkCard({ bookmark, folders, tags, onEdit, onDelete, onRest
           </div>
         )}
       </div>
-      
+
       {/* Quick Tag Toggle */}
       <div className="mt-3 flex flex-wrap gap-1.5">
-        {tags.map(tag => {
-          const hasTag = bookmark.tags.some(t => t.tag.id === tag.id)
+        {tags.map((tag) => {
+          const hasTag = bookmark.tags.some((t) => t.tag.id === tag.id);
           return (
             <button
               key={tag.id}
               onClick={() => onToggleTag(bookmark.id, tag.id)}
               className={`text-xs px-2 py-1 rounded-full font-medium transition-all ${
-                hasTag 
-                  ? 'bg-primary text-primary-foreground' 
-                  : 'bg-secondary text-secondary-foreground hover:bg-accent'
+                hasTag
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-secondary-foreground hover:bg-accent"
               }`}
             >
               {tag.name}
             </button>
-          )
+          );
         })}
       </div>
     </div>
-  )
+  );
 }

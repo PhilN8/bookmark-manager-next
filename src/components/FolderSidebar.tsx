@@ -7,7 +7,6 @@ import {
   Plus,
   ChevronRight,
   ChevronDown,
-  Pencil,
   Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -27,12 +26,11 @@ export function FolderTree({
   selectedFolderId,
   onSelectFolder,
   onCreateFolder,
-  onUpdateFolder,
   onDeleteFolder,
 }: FolderTreeProps) {
+  // Note: onUpdateFolder kept in interface for future rename feature
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [isCreating, setIsCreating] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [newFolderName, setNewFolderName] = useState("");
 
   const toggleExpand = (id: string) => {
@@ -51,14 +49,6 @@ export function FolderTree({
       setNewFolderName("");
       setIsCreating(null);
     }
-  };
-
-  const handleSaveEdit = (folderId: string) => {
-    if (newFolderName.trim() && onUpdateFolder) {
-      onUpdateFolder(folderId, newFolderName.trim());
-    }
-    setEditingId(null);
-    setNewFolderName("");
   };
 
   const renderFolder = (folder: FolderType, depth: number = 0) => {
@@ -102,17 +92,6 @@ export function FolderTree({
           )}
           <span className="truncate flex-1 font-medium">{folder.name}</span>
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditingId(folder.id);
-                setNewFolderName(folder.name);
-              }}
-              aria-label={`Edit folder ${folder.name}`}
-              className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-foreground"
-            >
-              <Pencil className="w-3 h-3" />
-            </button>
             <button
               onClick={(e) => {
                 e.stopPropagation();

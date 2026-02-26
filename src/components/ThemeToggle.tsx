@@ -1,33 +1,26 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { Moon, Sun, Monitor } from 'lucide-react'
-import { useThemeStore } from '@/lib/theme'
+import { useState, useEffect } from "react";
+import { Moon, Sun, Monitor } from "lucide-react";
+import { useThemeStore } from "@/lib/theme";
 
 export function ThemeToggle() {
-  const { theme, setTheme } = useThemeStore()
-  const [mounted, setMounted] = useState(false)
+  const { theme, setTheme } = useThemeStore();
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true)
-    const root = window.document.documentElement
-    const effectiveTheme = theme === 'system' 
-      ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-      : theme
-    
-    root.classList.remove('light', 'dark')
-    root.classList.add(effectiveTheme)
-  }, [theme])
-
-  if (!mounted) return null
+    setMounted(true);
+  }, []);
 
   const cycleTheme = () => {
-    if (theme === 'light') setTheme('dark')
-    else if (theme === 'dark') setTheme('system')
-    else setTheme('light')
-  }
+    const newTheme =
+      theme === "light" ? "dark" : theme === "dark" ? "system" : "light";
+    setTheme(newTheme);
+  };
 
-  const Icon = theme === 'light' ? Sun : theme === 'dark' ? Moon : Monitor
+  const Icon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor;
+
+  if (!mounted) return null;
 
   return (
     <button
@@ -37,5 +30,5 @@ export function ThemeToggle() {
     >
       <Icon className="w-4 h-4" />
     </button>
-  )
+  );
 }
