@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
+import { createTagSchema } from '@/lib/schemas'
 
 // GET /api/tags - List all tags
 export async function GET(request: NextRequest) {
@@ -26,11 +28,17 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, workspaceId = 'default' } = body
-
-    if (!name) {
-      return NextResponse.json({ error: 'Name is required' }, { status: 400 })
+    
+    // Validate input with Zod
+    const validation = createTagSchema.safeParse(body)
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: validation.error.flatten().fieldErrors },
+        { status: 400 }
+      )
     }
+
+    const { name, workspaceId = 'default' } = validation.data
 
     // Ensure workspace exists
     let workspace = await prisma.workspace.findUnique({
@@ -86,8 +94,13 @@ export async function DELETE(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const id = searchParams.get('id')
 
+  // Validate ID format
   if (!id) {
     return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+  }
+  const idValidation = z.string().uuid().safeParse(id)
+  if (!idValidation.success) {
+    return NextResponse.json({ error: 'Invalid ID format' }, { status: 400 })
   }
 
   try {

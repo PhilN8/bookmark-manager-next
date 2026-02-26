@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { sanitizeSearchQuery, createBookmarkSchema } from '@/lib/schemas'
 
 // GET /api/bookmarks - List bookmarks with filters
 export async function GET(request: NextRequest) {
@@ -9,6 +10,9 @@ export async function GET(request: NextRequest) {
   const tagId = searchParams.get('tag')
   const archived = searchParams.get('archived') === 'true'
   const workspaceId = searchParams.get('workspaceId') || 'default'
+
+  // Sanitize search query
+  const sanitizedQ = q ? sanitizeSearchQuery(q) : undefined
 
   try {
     const where: Record<string, unknown> = {
@@ -26,11 +30,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    if (q) {
+    if (sanitizedQ) {
       where.OR = [
-        { title: { contains: q } },
-        { description: { contains: q } },
-        { urls: { some: { url: { contains: q } } } }
+        { title: { contains: sanitizedQ } },
+        { description: { contains: sanitizedQ } },
+        { urls: { some: { url: { contains: sanitizedQ } } } }
       ]
     }
 
@@ -57,14 +61,17 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { title, description, folderId, tags, urls, workspaceId = 'default' } = body
-
-    if (!title || !urls || urls.length === 0) {
+    
+    // Validate input with Zod
+    const validation = createBookmarkSchema.safeParse(body)
+    if (!validation.success) {
       return NextResponse.json(
-        { error: 'Title and at least one URL are required' },
+        { error: 'Validation failed', details: validation.error.flatten().fieldErrors },
         { status: 400 }
       )
     }
+
+    const { title, description, folderId, tags, urls, workspaceId = 'default' } = validation.data
 
     // Ensure workspace exists
     let workspace = await prisma.workspace.findUnique({
@@ -104,27 +111,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Validate tagIds if provided
+    // Validate that all provided tags exist
     if (tags && tags.length > 0) {
       const existingTags = await prisma.tag.findMany({
         where: { id: { in: tags } },
       })
       if (existingTags.length !== tags.length) {
         return NextResponse.json(
-          { error: 'One or more tags not found' },
+          { error: 'One or more tags not found. Please select existing tags only.' },
           { status: 400 }
         )
       }
     }
 
     // Ensure exactly one primary URL
-    const primaryCount = urls.filter((u: { isPrimary: boolean }) => u.isPrimary).length
+    const primaryCount = urls.filter((u) => u.isPrimary).length
     if (primaryCount === 0) {
       urls[0].isPrimary = true
     } else if (primaryCount > 1) {
       // If multiple primaries specified, only keep the first one
       let foundFirst = false
-      urls.forEach((u: { isPrimary: boolean }) => {
+      urls.forEach((u) => {
         if (u.isPrimary) {
           if (foundFirst) {
             u.isPrimary = false
@@ -142,13 +149,13 @@ export async function POST(request: NextRequest) {
         folderId: folderId || null,
         workspaceId,
         urls: {
-          create: urls.map((url: { url: string; isPrimary: boolean; label?: string }) => ({
+          create: urls.map((url) => ({
             url: url.url,
             isPrimary: url.isPrimary,
             label: url.label || null,
           })),
         },
-        tags: tags?.length > 0 ? {
+        tags: (tags && tags.length > 0) ? {
           create: tags.map((tagId: string) => ({ tagId })),
         } : undefined,
       },

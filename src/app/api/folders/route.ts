@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { createFolderSchema, updateFolderSchema } from '@/lib/schemas'
 
 // GET /api/folders - List all folders
 export async function GET(request: NextRequest) {
@@ -31,11 +32,17 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, parentId, workspaceId = 'default' } = body
-
-    if (!name) {
-      return NextResponse.json({ error: 'Name is required' }, { status: 400 })
+    
+    // Validate input with Zod
+    const validation = createFolderSchema.safeParse(body)
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: validation.error.flatten().fieldErrors },
+        { status: 400 }
+      )
     }
+
+    const { name, parentId, workspaceId = 'default' } = validation.data
 
     // Ensure workspace exists
     let workspace = await prisma.workspace.findUnique({
@@ -104,11 +111,17 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
-    const { id, name, parentId, order } = body
-
-    if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+    
+    // Validate input with Zod
+    const validation = updateFolderSchema.safeParse(body)
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: validation.error.flatten().fieldErrors },
+        { status: 400 }
+      )
     }
+
+    const { id, name, parentId, order } = validation.data
 
     const folder = await prisma.folder.update({
       where: { id },
