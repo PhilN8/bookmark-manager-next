@@ -24,6 +24,10 @@ jest.mock("@/components/BookmarkForm", () => ({
   BookmarkForm: () => <div data-testid="bookmark-form" />,
 }));
 
+jest.mock("@/components/LoadingScreen", () => ({
+  LoadingScreen: () => <div data-testid="loading-screen" />,
+}));
+
 jest.mock("@/lib/store", () => ({
   useStore: jest.fn(),
 }));
@@ -59,13 +63,15 @@ describe("Home CRUD interactions", () => {
     setIsLoading,
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     useStoreMock.mockReturnValue({ ...baseStore });
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => [],
     }) as jest.Mock;
     window.confirm = jest.fn(() => true);
+    // Wait for initial load to complete
+    await new Promise(resolve => setTimeout(resolve, 100));
   });
 
   afterEach(() => {
@@ -74,6 +80,11 @@ describe("Home CRUD interactions", () => {
 
   it("creates a tag with trimmed name", async () => {
     render(<Home />);
+
+    // Wait for initial load to complete (LoadingScreen to disappear)
+    await waitFor(() => {
+      expect(screen.queryByTestId("loading-screen")).toBeNull();
+    });
 
     fireEvent.click(screen.getByLabelText("Add tag"));
     const input = screen.getByPlaceholderText("Tag name");
@@ -91,6 +102,11 @@ describe("Home CRUD interactions", () => {
 
   it("deletes a tag after confirmation", async () => {
     render(<Home />);
+
+    // Wait for initial load to complete (LoadingScreen to disappear)
+    await waitFor(() => {
+      expect(screen.queryByTestId("loading-screen")).toBeNull();
+    });
 
     fireEvent.click(screen.getByLabelText("Delete tag React"));
 

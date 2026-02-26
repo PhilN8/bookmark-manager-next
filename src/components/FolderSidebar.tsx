@@ -11,7 +11,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Folder as FolderType } from "@/lib/store";
+import { Folder as FolderType } from "@/lib/types";
 
 interface FolderTreeProps {
   folders: FolderType[];

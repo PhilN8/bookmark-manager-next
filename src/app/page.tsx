@@ -1,12 +1,17 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Search, Plus, Tag, Archive, Loader2, Bookmark, X } from "lucide-react";
+import { Search, Plus, Tag, Archive, Loader2, Bookmark, X, Check, Pencil, Trash2, FolderPlus, ArchiveRestore } from "lucide-react";
+import { toast, Toaster } from "sonner";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { useStore, Bookmark as BookmarkType } from "@/lib/store";
+import { useDebounce } from "@/lib/useDebounce";
+import { useStore } from "@/lib/store";
+import { Bookmark as BookmarkType } from "@/lib/types";
 import { FolderTree } from "@/components/FolderSidebar";
 import { BookmarkCard } from "@/components/BookmarkCard";
 import { BookmarkForm } from "@/components/BookmarkForm";
+import { LoadingScreen } from "@/components/LoadingScreen";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 const API_BASE = "/api";
 
@@ -24,11 +29,24 @@ export default function Home() {
     setSelectedTagId,
     searchQuery,
     setSearchQuery,
+  } = useStore()
+  
+  const debouncedSearch = useDebounce(searchQuery, 300)
+  
+  const {
     showArchived,
     setShowArchived,
     isLoading,
     setIsLoading,
   } = useStore();
+
+  const [initialLoad, setInitialLoad] = useState(true);
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    type: "archive" | "restore";
+    bookmarkId: string;
+    bookmarkTitle: string;
+  }>({ isOpen: false, type: "archive", bookmarkId: "", bookmarkTitle: "" });
 
   const [showForm, setShowForm] = useState(false);
   const [editingBookmark, setEditingBookmark] = useState<BookmarkType | null>(
@@ -41,7 +59,7 @@ export default function Home() {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
-      if (searchQuery) params.set("q", searchQuery);
+      if (debouncedSearch) params.set("q", debouncedSearch);
       if (selectedFolderId) params.set("folder", selectedFolderId);
       if (selectedTagId) params.set("tag", selectedTagId);
       if (showArchived) params.set("archived", "true");
@@ -73,7 +91,7 @@ export default function Home() {
   };
 
   useEffect(() => {
-    fetchBookmarks();
+    fetchBookmarks().then(() => setInitialLoad(false));
   }, [fetchBookmarks]);
   useEffect(() => {
     fetchFolders();
@@ -86,17 +104,22 @@ export default function Home() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, parentId }),
     });
-    if (res.ok) fetchFolders();
+    if (res.ok) {
+      toast.success("Folder created", { description: `"${name}" has been added.`, icon: <FolderPlus className="w-4 h-4" /> });
+      fetchFolders();
+    }
   };
 
   const handleCreateTag = async () => {
     if (!newTagName.trim()) return;
+    const tagName = newTagName.trim();
     const res = await fetch(`${API_BASE}/tags`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newTagName.trim() }),
+      body: JSON.stringify({ name: tagName }),
     });
     if (res.ok) {
+      toast.success("Tag created", { description: `"${tagName}" has been added.`, icon: <Tag className="w-4 h-4" /> });
       setNewTagName("");
       setIsCreatingTag(false);
       fetchTags();
@@ -104,9 +127,13 @@ export default function Home() {
   };
 
   const handleDeleteTag = async (id: string) => {
+    const tag = tags.find(t => t.id === id);
     if (!confirm("Delete this tag?")) return;
     const res = await fetch(`${API_BASE}/tags?id=${id}`, { method: "DELETE" });
-    if (res.ok) fetchTags();
+    if (res.ok) {
+      toast.success("Tag deleted", { description: `"${tag?.name}" has been removed.`, icon: <Trash2 className="w-4 h-4" /> });
+      fetchTags();
+    }
   };
 
   const handleUpdateFolder = async (id: string, name: string) => {
@@ -115,16 +142,23 @@ export default function Home() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, name }),
     });
-    if (res.ok) fetchFolders();
+    if (res.ok) {
+      toast.success("Folder renamed", { description: `"${name}" has been updated.`, icon: <Pencil className="w-4 h-4" /> });
+      fetchFolders();
+    }
   };
 
   const handleDeleteFolder = async (id: string) => {
+    const folder = folders.find(f => f.id === id);
     if (!confirm("Delete this folder? Bookmarks will be moved to root."))
       return;
     const res = await fetch(`${API_BASE}/folders?id=${id}`, {
       method: "DELETE",
     });
-    if (res.ok) fetchFolders();
+    if (res.ok) {
+      toast.success("Folder deleted", { description: `"${folder?.name}" has been removed.`, icon: <Trash2 className="w-4 h-4" /> });
+      fetchFolders();
+    }
   };
 
   const handleMoveFolder = async (bookmarkId: string, folderId: string) => {
@@ -166,6 +200,10 @@ export default function Home() {
       body: JSON.stringify(data),
     });
     if (res.ok) {
+      toast.success(
+        editingBookmark ? "Bookmark updated" : "Bookmark created",
+        { description: editingBookmark ? `"${data.title}" has been updated.` : `"${data.title}" has been added.`, icon: <Check className="w-4 h-4" /> }
+      );
       setShowForm(false);
       setEditingBookmark(null);
       fetchBookmarks();
@@ -173,12 +211,50 @@ export default function Home() {
   };
 
   const handleDeleteBookmark = async (id: string) => {
-    if (!confirm("Archive this bookmark?")) return;
-    const res = await fetch(`${API_BASE}/bookmarks/${id}`, {
-      method: "DELETE",
+    const bookmark = bookmarks.find(b => b.id === id);
+    setConfirmModal({
+      isOpen: true,
+      type: "archive",
+      bookmarkId: id,
+      bookmarkTitle: bookmark?.title || "",
     });
-    if (res.ok) fetchBookmarks();
   };
+
+  const handleRestoreBookmark = async (id: string) => {
+    const bookmark = bookmarks.find(b => b.id === id);
+    setConfirmModal({
+      isOpen: true,
+      type: "restore",
+      bookmarkId: id,
+      bookmarkTitle: bookmark?.title || "",
+    });
+  };
+
+  const handleConfirmModal = async () => {
+    const { type, bookmarkId } = confirmModal;
+    if (type === "archive") {
+      const res = await fetch(`${API_BASE}/bookmarks/${bookmarkId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        toast.success("Bookmark archived", { description: `"${confirmModal.bookmarkTitle}" has been archived.`, icon: <Archive className="w-4 h-4" /> });
+        fetchBookmarks();
+      }
+    } else {
+      const res = await fetch(`${API_BASE}/bookmarks/${bookmarkId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived: false }),
+      });
+      if (res.ok) {
+        toast.success("Bookmark restored", { description: `"${confirmModal.bookmarkTitle}" has been restored.`, icon: <ArchiveRestore className="w-4 h-4" /> });
+        fetchBookmarks();
+      }
+    }
+    setConfirmModal({ isOpen: false, type: "archive", bookmarkId: "", bookmarkTitle: "" });
+  };
+
+  if (initialLoad) return <LoadingScreen />;
 
   return (
     <div className="flex h-screen bg-background">
@@ -357,8 +433,9 @@ export default function Home() {
                   bookmark={bookmark}
                   folders={folders.map((f) => ({ id: f.id, name: f.name }))}
                   tags={tags}
-                  onEdit={setEditingBookmark}
+                  onEdit={(bookmark) => { setEditingBookmark(bookmark); setShowForm(true); }}
                   onDelete={handleDeleteBookmark}
+                  onRestore={handleRestoreBookmark}
                   onMoveFolder={handleMoveFolder}
                   onToggleTag={handleToggleTag}
                 />
@@ -381,6 +458,23 @@ export default function Home() {
           }}
         />
       )}
+
+      <Toaster position="bottom-right" richColors />
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.type === "archive" ? "Archive bookmark?" : "Restore bookmark?"}
+        message={
+          confirmModal.type === "archive"
+            ? `Are you sure you want to archive "${confirmModal.bookmarkTitle}"? You can restore it later from the archived view.`
+            : `Are you sure you want to restore "${confirmModal.bookmarkTitle}"? It will be moved back to your active bookmarks.`
+        }
+        confirmLabel={confirmModal.type === "archive" ? "Archive" : "Restore"}
+        variant="danger"
+        icon={confirmModal.type === "archive" ? "archive" : "restore"}
+        onConfirm={handleConfirmModal}
+        onCancel={() => setConfirmModal({ isOpen: false, type: "archive", bookmarkId: "", bookmarkTitle: "" })}
+      />
     </div>
   );
 }

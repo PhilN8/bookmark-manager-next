@@ -1,7 +1,7 @@
 'use client'
 
-import { Link, Edit, Trash2, ExternalLink, Folder, Tag } from 'lucide-react'
-import { Bookmark } from '@/lib/store'
+import { Link, Edit, Trash2, ExternalLink, Folder, Tag, ArchiveRestore } from 'lucide-react'
+import { Bookmark } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 import { useState } from 'react'
@@ -12,11 +12,12 @@ interface BookmarkCardProps {
   tags: { id: string; name: string }[]
   onEdit: (bookmark: Bookmark) => void
   onDelete: (id: string) => void
+  onRestore?: (id: string) => void
   onMoveFolder: (bookmarkId: string, folderId: string) => void
   onToggleTag: (bookmarkId: string, tagId: string) => void
 }
 
-export function BookmarkCard({ bookmark, folders, tags, onEdit, onDelete, onMoveFolder, onToggleTag }: BookmarkCardProps) {
+export function BookmarkCard({ bookmark, folders, tags, onEdit, onDelete, onRestore, onMoveFolder, onToggleTag }: BookmarkCardProps) {
   const primaryUrl = bookmark.urls.find((u) => u.isPrimary) || bookmark.urls[0]
   const [showFolderSelect, setShowFolderSelect] = useState(false)
 
@@ -53,13 +54,23 @@ export function BookmarkCard({ bookmark, folders, tags, onEdit, onDelete, onMove
           >
             <Edit className="w-4 h-4" />
           </button>
-          <button
-            onClick={() => onDelete(bookmark.id)}
-            className="p-2 hover:bg-red-50 dark:hover:bg-red-950 rounded-lg text-muted-foreground hover:text-red-500 transition-colors"
-            title="Archive"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+          {bookmark.archived ? (
+            <button
+              onClick={() => onRestore?.(bookmark.id)}
+              className="p-2 hover:bg-green-50 dark:hover:bg-green-950 rounded-lg text-muted-foreground hover:text-green-500 transition-colors"
+              title="Restore"
+            >
+              <ArchiveRestore className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              onClick={() => onDelete(bookmark.id)}
+              className="p-2 hover:bg-red-50 dark:hover:bg-red-950 rounded-lg text-muted-foreground hover:text-red-500 transition-colors"
+              title="Archive"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { X, Plus, Trash2 } from "lucide-react";
-import { Bookmark, Folder, Tag } from "@/lib/store";
+import { Bookmark, Folder, Tag } from "@/lib/types";
 
 interface BookmarkFormProps {
   bookmark?: Bookmark | null;
@@ -32,7 +32,7 @@ export function BookmarkForm({
   const [urls, setUrls] = useState<
     { url: string; isPrimary: boolean; label: string }[]
   >([]);
-  const [newTagName, setNewTagName] = useState("");
+  // Tags are optional - only existing tags can be added
 
   useEffect(() => {
     if (bookmark) {
@@ -99,14 +99,6 @@ export function BookmarkForm({
     setSelectedTags((prev) =>
       prev.includes(tagId) ? prev.filter((t) => t !== tagId) : [...prev, tagId],
     );
-  };
-
-  const createAndAddTag = () => {
-    if (newTagName.trim()) {
-      const tempId = `temp-${Date.now()}`;
-      setSelectedTags([...selectedTags, tempId]);
-      setNewTagName("");
-    }
   };
 
   const flattenFolders = (
@@ -255,22 +247,6 @@ export function BookmarkForm({
                   {tag.name}
                 </button>
               ))}
-            </div>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newTagName}
-                onChange={(e) => setNewTagName(e.target.value)}
-                placeholder="New tag"
-                className="flex-1 px-4 py-2.5 bg-secondary text-foreground placeholder:text-muted-foreground rounded-xl border-0 focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-200"
-              />
-              <button
-                type="button"
-                onClick={createAndAddTag}
-                className="px-5 py-2.5 bg-secondary text-foreground rounded-xl hover:bg-accent transition-colors font-medium"
-              >
-                Add
-              </button>
             </div>
           </div>
 

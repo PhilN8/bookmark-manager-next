@@ -1,40 +1,5 @@
 import { create } from 'zustand'
-
-export interface BookmarkUrl {
-  id: string
-  url: string
-  isPrimary: boolean
-  label: string | null
-}
-
-export interface Tag {
-  id: string
-  name: string
-  _count?: { bookmarkTags: number }
-}
-
-export interface Bookmark {
-  id: string
-  title: string
-  description: string | null
-  folderId: string | null
-  workspaceId: string
-  archived: boolean
-  createdAt: string
-  updatedAt: string
-  urls: BookmarkUrl[]
-  tags: { tag: Tag }[]
-  folder: { id: string; name: string } | null
-}
-
-export interface Folder {
-  id: string
-  name: string
-  parentId: string | null
-  order: number
-  children: Folder[]
-  _count?: { bookmarks: number }
-}
+import { Bookmark, Folder, Tag } from './types'
 
 interface AppState {
   bookmarks: Bookmark[]

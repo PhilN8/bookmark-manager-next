@@ -104,6 +104,19 @@ describe('Bookmarks Database Operations', () => {
 
       expect(archived.length).toBeGreaterThan(0)
     })
+
+    it('should restore an archived bookmark', async () => {
+      await prisma.bookmark.update({
+        where: { id: bookmarkId },
+        data: { archived: false },
+      })
+
+      const bookmark = await prisma.bookmark.findUnique({
+        where: { id: bookmarkId },
+      })
+
+      expect(bookmark?.archived).toBe(false)
+    })
   })
 
   describe('Folder Operations', () => {
