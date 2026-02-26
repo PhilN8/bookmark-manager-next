@@ -70,7 +70,7 @@ export async function PUT(
     }
 
     // If updating URLs, ensure exactly one is primary
-    let urlsToUpdate = urls
+    const urlsToUpdate = urls
     if (urls && urls.length > 0) {
       const primaryCount = urls.filter((u: { isPrimary: boolean }) => u.isPrimary).length
       if (primaryCount === 0) {
