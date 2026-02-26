@@ -1,0 +1,152 @@
+// Bookmark Manager MVP Schema
+// Database: PostgreSQL 14+
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER & WORKSPACE (MVP - Single User)
+// ============================================
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  passwordHash String
+  createdAt    DateTime     @default(now())
+
+  workspaces Workspace[]
+}
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  userId    String
+  createdAt DateTime @default(now())
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookmarks  Bookmark[]
+  folders    Folder[]
+  tags       Tag[]
+
+  @@index([userId])
+}
+
+// ============================================
+// FOLDERS (Hierarchical)
+// ============================================
+
+model Folder {
+  id          String    @id @default(cuid())
+  name        String
+  workspaceId String
+  parentId    String?
+  order       Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  parent      Folder?    @relation("FolderHierarchy", fields: [parentId], references: [id])
+  children    Folder[]   @relation("FolderHierarchy")
+  bookmarks   Bookmark[]
+
+  @@index([workspaceId])
+  @@index([workspaceId, parentId])
+}
+
+// ============================================
+// TAGS
+// ============================================
+
+model Tag {
+  id          String   @id @default(cuid())
+  name        String
+  workspaceId String
+  createdAt   DateTime @default(now())
+
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  bookmarkTags BookmarkTag[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+}
+
+// ============================================
+// BOOKMARKS (Core Entity)
+// ============================================
+
+model Bookmark {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  folderId    String?
+  workspaceId String
+  archived    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  folder     Folder?       @relation(fields: [folderId], references: [id])
+  workspace  Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  urls       BookmarkUrl[]
+  tags       BookmarkTag[]
+
+  @@index([workspaceId, folderId])
+  @@index([workspaceId, archived])
+  // GIN index for full-text search will be created via migration
+}
+
+// ============================================
+// BOOKMARK URLs (Multiple URLs per Bookmark)
+// ============================================
+
+model BookmarkUrl {
+  id         String   @id @default(cuid())
+  bookmarkId String
+  url        String
+  isPrimary  Boolean  @default(false)
+  label      String?
+  addedAt    DateTime @default(now())
+
+  bookmark   Bookmark   @relation(fields: [bookmarkId], references: [id], onDelete: Cascade)
+  snapshots  Snapshot[]
+
+  @@unique([bookmarkId, isPrimary]) // Only one primary URL per bookmark
+  @@index([bookmarkId])
+}
+
+// ============================================
+// BOOKMARK TAGS (Many-to-Many)
+// ============================================
+
+model BookmarkTag {
+  bookmarkId String
+  tagId      String
+
+  bookmark Bookmark @relation(fields: [bookmarkId], references: [id], onDelete: Cascade)
+  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([bookmarkId, tagId])
+  @@index([tagId])
+}
+
+// ============================================
+// SNAPSHOTS (Post-MVP - OUT OF SCOPE)
+// ============================================
+
+model Snapshot {
+  id            String   @id @default(cuid())
+  bookmarkUrlId String
+  capturedAt    DateTime @default(now())
+  storageUrl    String
+  contentSize   Int?
+  createdAt     DateTime @default(now())
+
+  bookmarkUrl BookmarkUrl @relation(fields: [bookmarkUrlId], references: [id], onDelete: Cascade)
+
+  @@index([bookmarkUrlId])
+  @@index([capturedAt])
+}
