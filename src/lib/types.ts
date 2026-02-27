@@ -1,3 +1,16 @@
+// Workspace Types
+export interface Workspace {
+  id: string
+  name: string
+  userId: string
+  createdAt: string
+  _count?: {
+    bookmarks: number
+    folders: number
+    tags: number
+  }
+}
+
 // Bookmark Types
 export interface BookmarkUrl {
   id: string

@@ -14,6 +14,7 @@ import {
   Trash2,
   FolderPlus,
   ArchiveRestore,
+  ArchiveX,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -25,6 +26,7 @@ import { BookmarkCard } from "@/components/BookmarkCard";
 import { BookmarkForm } from "@/components/BookmarkForm";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { ConfirmModal } from "@/components/ConfirmModal";
+import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
 
 const API_BASE = "/api";
 
@@ -314,6 +316,11 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Workspace Switcher */}
+        <div className="px-4 py-2">
+          <WorkspaceSwitcher />
+        </div>
+
         <div className="flex-1 overflow-y-auto">
           <div className="p-4">
             <FolderTree
@@ -417,7 +424,7 @@ export default function Home() {
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground"
               }`}
             >
-              <Archive className="w-4 h-4" />
+              {showArchived ? <ArchiveX className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
               <span className="hidden sm:inline">
                 {showArchived ? "Active" : "Archived"}
               </span>

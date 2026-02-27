@@ -1,4 +1,4 @@
-import { Bookmark, BookmarkFormData, Folder, Tag } from './types'
+import { Bookmark, BookmarkFormData, Folder, Tag, Workspace } from './types'
 
 const API_BASE = '/api'
 
@@ -119,5 +119,41 @@ export const tagApi = {
   async delete(id: string): Promise<void> {
     const res = await fetch(`${API_BASE}/tags?id=${id}`, { method: 'DELETE' })
     if (!res.ok) throw new Error('Failed to delete tag')
+  },
+}
+
+// Workspace API
+export const workspaceApi = {
+  async getAll(userId: string): Promise<Workspace[]> {
+    const res = await fetch(`${API_BASE}/workspaces?userId=${userId}`)
+    return handleResponse(res)
+  },
+
+  async getById(id: string): Promise<Workspace> {
+    const res = await fetch(`${API_BASE}/workspaces/${id}`)
+    return handleResponse(res)
+  },
+
+  async create(name: string, userId: string): Promise<Workspace> {
+    const res = await fetch(`${API_BASE}/workspaces`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, userId }),
+    })
+    return handleResponse(res)
+  },
+
+  async update(id: string, name: string): Promise<Workspace> {
+    const res = await fetch(`${API_BASE}/workspaces/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    })
+    return handleResponse(res)
+  },
+
+  async delete(id: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/workspaces/${id}`, { method: 'DELETE' })
+    if (!res.ok) throw new Error('Failed to delete workspace')
   },
 }

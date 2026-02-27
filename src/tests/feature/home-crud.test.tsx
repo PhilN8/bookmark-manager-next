@@ -28,6 +28,10 @@ jest.mock("@/components/LoadingScreen", () => ({
   LoadingScreen: () => <div data-testid="loading-screen" />,
 }));
 
+jest.mock("@/components/WorkspaceSwitcher", () => ({
+  WorkspaceSwitcher: () => <div data-testid="workspace-switcher" />,
+}));
+
 jest.mock("@/lib/store", () => ({
   useStore: jest.fn(),
 }));
