@@ -1,3 +1,9 @@
+// User Types
+export interface User {
+  id: string
+  email: string
+}
+
 // Workspace Types
 export interface Workspace {
   id: string

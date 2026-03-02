@@ -1,4 +1,4 @@
-import { Bookmark, BookmarkFormData, Folder, Tag, Workspace } from './types'
+import { Bookmark, BookmarkFormData, Folder, Tag, User, Workspace } from './types'
 
 const API_BASE = '/api'
 
@@ -155,5 +155,41 @@ export const workspaceApi = {
   async delete(id: string): Promise<void> {
     const res = await fetch(`${API_BASE}/workspaces/${id}`, { method: 'DELETE' })
     if (!res.ok) throw new Error('Failed to delete workspace')
+  },
+}
+
+// Auth API (BetterAuth)
+export const authApi = {
+  async signUp(email: string, password: string, name?: string): Promise<{ id: string; email: string; name?: string }> {
+    const res = await fetch(`${API_BASE}/auth/sign-up`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, name }),
+    })
+    return handleResponse(res)
+  },
+
+  async signIn(email: string, password: string): Promise<{ id: string; email: string; name?: string }> {
+    const res = await fetch(`${API_BASE}/auth/sign-in`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    })
+    return handleResponse(res)
+  },
+
+  async signOut(): Promise<void> {
+    const res = await fetch(`${API_BASE}/auth/sign-out`, { method: 'POST' })
+    if (!res.ok) throw new Error('Failed to sign out')
+  },
+
+  async getSession(): Promise<{ user: { id: string; email: string; name?: string } }> {
+    const res = await fetch(`${API_BASE}/auth/get-session`)
+    return handleResponse(res)
+  },
+
+  async listSessions(): Promise<{ sessions: Array<{ id: string; expiresAt: string }> }> {
+    const res = await fetch(`${API_BASE}/auth/list-sessions`)
+    return handleResponse(res)
   },
 }

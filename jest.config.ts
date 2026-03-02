@@ -12,6 +12,9 @@ const customJestConfig: Config = {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/node_modules/'],
+  transformIgnorePatterns: [
+    '/node_modules/(?!better-auth|.*\\.mjs$)',
+  ],
 }
 
 export default createJestConfig(customJestConfig)

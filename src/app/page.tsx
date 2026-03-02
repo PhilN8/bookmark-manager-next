@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   Search,
   Plus,
@@ -15,6 +16,7 @@ import {
   FolderPlus,
   ArchiveRestore,
   ArchiveX,
+  LogOut,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -31,6 +33,7 @@ import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
 const API_BASE = "/api";
 
 export default function Home() {
+  const router = useRouter();
   const {
     bookmarks,
     setBookmarks,
@@ -64,6 +67,39 @@ export default function Home() {
   );
   const [newTagName, setNewTagName] = useState("");
   const [isCreatingTag, setIsCreatingTag] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+  // Check authentication on mount using BetterAuth's getSession
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch("/api/auth/get-session");
+        if (!res.ok) {
+          router.push("/login");
+          return;
+        }
+        const data = await res.json();
+        if (!data.session) {
+          router.push("/login");
+          return;
+        }
+        setIsAuthenticated(true);
+      } catch {
+        router.push("/login");
+      }
+    };
+    checkAuth();
+  }, [router]);
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/sign-out", { method: "POST" });
+      router.push("/login");
+      router.refresh();
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
 
   const fetchBookmarks = useCallback(async () => {
     setIsLoading(true);
@@ -298,7 +334,7 @@ export default function Home() {
     });
   };
 
-  if (initialLoad) return <LoadingScreen />;
+  if (initialLoad || isAuthenticated === null) return <LoadingScreen />;
 
   return (
     <div className="flex h-screen bg-background">
@@ -415,6 +451,14 @@ export default function Home() {
             </div>
 
             <ThemeToggle />
+
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-3 rounded-xl font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-all duration-200"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
 
             <button
               onClick={() => setShowArchived(!showArchived)}
