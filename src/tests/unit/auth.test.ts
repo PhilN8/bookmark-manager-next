@@ -2,11 +2,12 @@
 jest.mock('@/lib/auth', () => ({
   auth: {
     api: {},
-    signUp: jest.fn(),
-    signIn: jest.fn(),
-    signOut: jest.fn(),
-    getSession: jest.fn(),
   },
+  createToken: jest.fn(),
+  verifyToken: jest.fn(),
+  setAuthCookie: jest.fn(),
+  clearAuthCookie: jest.fn(),
+  getAuthUser: jest.fn(),
 }))
 
 // Auth validation tests - Zod schemas
@@ -37,19 +38,22 @@ describe('Auth API Validation', () => {
   })
 })
 
-// BetterAuth configuration tests
-describe('BetterAuth Configuration', () => {
+// Auth helpers tests
+describe('Auth Helpers', () => {
   it('should export auth object', async () => {
     const { auth } = await import('@/lib/auth')
     expect(auth).toBeDefined()
   })
 
-  it('should have auth methods', async () => {
-    const { auth } = await import('@/lib/auth')
-    expect(auth).toHaveProperty('api')
-    expect(auth).toHaveProperty('signUp')
-    expect(auth).toHaveProperty('signIn')
-    expect(auth).toHaveProperty('signOut')
-    expect(auth).toHaveProperty('getSession')
+  it('should have createToken function', async () => {
+    const { createToken } = await import('@/lib/auth')
+    expect(createToken).toBeDefined()
+    expect(typeof createToken).toBe('function')
+  })
+
+  it('should have verifyToken function', async () => {
+    const { verifyToken } = await import('@/lib/auth')
+    expect(verifyToken).toBeDefined()
+    expect(typeof verifyToken).toBe('function')
   })
 })

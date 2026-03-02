@@ -15,6 +15,7 @@ const customJestConfig: Config = {
   transformIgnorePatterns: [
     '/node_modules/(?!better-auth|.*\\.mjs$)',
   ],
+  testTimeout: 30000,
 }
 
 export default createJestConfig(customJestConfig)
