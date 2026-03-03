@@ -137,7 +137,7 @@ export function WorkspaceSwitcher() {
                       if (e.key === "Escape") setIsCreating(false);
                     }}
                     placeholder="Workspace name"
-                    className="flex-1 px-3 py-2 text-sm bg-secondary text-foreground placeholder:text-muted-foreground rounded-lg border-0 focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="flex-1 px-3 py-2 text-sm bg-background text-foreground placeholder:text-muted-foreground rounded-lg border border-input focus:outline-none focus:ring-2 focus:ring-ring"
                     autoFocus
                   />
                   <button

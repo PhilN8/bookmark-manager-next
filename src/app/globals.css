@@ -137,7 +137,7 @@ body {
   @apply w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-200;
 }
 
-/* Ensure inputs have visible borders in dark mode */
+/* Ensure inputs have visible borders and background in dark mode */
 input[type="text"],
 input[type="email"],
 input[type="password"],
@@ -146,4 +146,5 @@ input[type="search"],
 textarea,
 select {
   @apply border border-input;
+  background-color: var(--input);
 }

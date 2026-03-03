@@ -391,7 +391,7 @@ export default function Home() {
                     if (e.key === "Escape") setIsCreatingTag(false);
                   }}
                   placeholder="Tag name"
-                  className="flex-1 px-3 py-1.5 text-sm bg-secondary text-foreground placeholder:text-muted-foreground rounded-lg border-0 focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="flex-1 px-3 py-1.5 text-sm bg-background text-foreground placeholder:text-muted-foreground rounded-lg border border-input focus:outline-none focus:ring-2 focus:ring-ring"
                   autoFocus
                 />
                 <button
@@ -446,7 +446,7 @@ export default function Home() {
                 placeholder="Search your bookmarks..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 bg-secondary text-foreground placeholder:text-muted-foreground rounded-xl border-0 focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-200"
+                className="w-full pl-11 pr-4 py-3 bg-background text-foreground placeholder:text-muted-foreground rounded-xl border border-input focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-200"
               />
             </div>
 

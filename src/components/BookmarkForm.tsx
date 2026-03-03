@@ -139,7 +139,7 @@ export function BookmarkForm({
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-4 py-3 bg-secondary text-foreground placeholder:text-muted-foreground rounded-xl border-0 focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-200"
+              className="w-full px-4 py-3 bg-background text-foreground placeholder:text-muted-foreground rounded-xl border border-input focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-200"
               placeholder="Enter bookmark title"
               required
             />
@@ -152,7 +152,7 @@ export function BookmarkForm({
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-4 py-3 bg-secondary text-foreground placeholder:text-muted-foreground rounded-xl border-0 focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-200"
+              className="w-full px-4 py-3 bg-background text-foreground placeholder:text-muted-foreground rounded-xl border border-input focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-200"
               rows={3}
               placeholder="Add a description..."
             />
@@ -165,7 +165,7 @@ export function BookmarkForm({
             <select
               value={folderId}
               onChange={(e) => setFolderId(e.target.value)}
-              className="w-full px-4 py-3 bg-secondary text-foreground rounded-xl border-0 focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-200"
+              className="w-full px-4 py-3 bg-background text-foreground rounded-xl border border-input focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-200"
             >
               <option value="">No folder</option>
               {flatFolders.map((f) => (
@@ -197,7 +197,7 @@ export function BookmarkForm({
                     value={url.url}
                     onChange={(e) => updateUrl(index, "url", e.target.value)}
                     placeholder="https://example.com"
-                    className="flex-1 px-4 py-2.5 bg-secondary text-foreground placeholder:text-muted-foreground rounded-lg border-0 focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-200"
+                    className="flex-1 px-4 py-2.5 bg-background text-foreground placeholder:text-muted-foreground rounded-lg border border-input focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-200"
                     required={index === 0}
                   />
                   <input
@@ -205,7 +205,7 @@ export function BookmarkForm({
                     value={url.label}
                     onChange={(e) => updateUrl(index, "label", e.target.value)}
                     placeholder="Label"
-                    className="w-28 px-3 py-2.5 bg-secondary text-foreground placeholder:text-muted-foreground rounded-lg border-0 focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-200"
+                    className="w-28 px-3 py-2.5 bg-background text-foreground placeholder:text-muted-foreground rounded-lg border border-input focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-200"
                   />
                   <button
                     type="button"

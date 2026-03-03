@@ -91,7 +91,7 @@ export default function RegisterPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-3 bg-secondary text-foreground placeholder:text-muted-foreground rounded-xl border-0 focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-200"
+                className="w-full px-4 py-3 bg-background text-foreground placeholder:text-muted-foreground rounded-xl border border-input focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-200"
                 placeholder="you@example.com"
               />
             </div>
@@ -108,7 +108,7 @@ export default function RegisterPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={6}
-                  className="w-full px-4 py-3 pr-12 bg-secondary text-foreground placeholder:text-muted-foreground rounded-xl border-0 focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-200"
+                  className="w-full px-4 py-3 pr-12 bg-background text-foreground placeholder:text-muted-foreground rounded-xl border border-input focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-200"
                   placeholder="••••••••"
                 />
                 <button
@@ -132,7 +132,7 @@ export default function RegisterPage() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
-                className="w-full px-4 py-3 bg-secondary text-foreground placeholder:text-muted-foreground rounded-xl border-0 focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-200"
+                className="w-full px-4 py-3 bg-background text-foreground placeholder:text-muted-foreground rounded-xl border border-input focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-200"
                 placeholder="••••••••"
               />
             </div>
