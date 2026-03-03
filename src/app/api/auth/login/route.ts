@@ -14,11 +14,11 @@ export async function POST(request: Request) {
   // Check rate limit
   const identifier = getRateLimitIdentifier(request)
   const rateLimit = checkRateLimit(identifier)
-  
+
   if (!rateLimit.allowed) {
     return NextResponse.json(
       { error: 'Too many login attempts. Please try again later.' },
-      { 
+      {
         status: 429,
         headers: {
           'Retry-After': Math.ceil((rateLimit.resetTime - Date.now()) / 1000).toString(),
@@ -29,9 +29,18 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
-    const { email, password } = loginSchema.parse(body)
+    const validation = loginSchema.safeParse(body)
+    
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: 'Invalid email or password' },
+        { status: 401 }
+      )
+    }
 
-    const user = await prisma.user.findUnique({ 
+    const { email, password } = validation.data
+
+    const user = await prisma.user.findUnique({
       where: { email },
       select: { id: true, email: true, passwordHash: true }
     })

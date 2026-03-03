@@ -12,7 +12,16 @@ const registerSchema = z.object({
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { email, password } = registerSchema.parse(body)
+    const validation = registerSchema.safeParse(body)
+    
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: 'Invalid email or password' },
+        { status: 400 }
+      )
+    }
+
+    const { email, password } = validation.data
 
     const existingUser = await prisma.user.findUnique({ where: { email } })
     if (existingUser) {
@@ -25,10 +34,13 @@ export async function POST(request: Request) {
     const passwordHash = await hash(password, 10)
 
     const user = await prisma.user.create({
-      data: { email, passwordHash },
+      data: { 
+        email, 
+        passwordHash,
+        emailVerified: false,
+      },
     })
 
-    // Create default workspace for new user
     await prisma.workspace.create({
       data: { name: 'My Workspace', userId: user.id },
     })
