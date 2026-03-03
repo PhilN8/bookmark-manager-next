@@ -44,14 +44,14 @@
   --card-foreground: #fafafa;
   --primary: #ffffff;
   --primary-foreground: #000000;
-  --secondary: #171717;
+  --secondary: #262626;
   --secondary-foreground: #fafafa;
-  --muted: #171717;
+  --muted: #262626;
   --muted-foreground: #a3a3a3;
-  --accent: #171717;
+  --accent: #262626;
   --accent-foreground: #fafafa;
-  --border: #262626;
-  --input: #262626;
+  --border: #404040;
+  --input: #404040;
   --ring: #ffffff;
 }
 
@@ -63,14 +63,14 @@
     --card-foreground: #fafafa;
     --primary: #ffffff;
     --primary-foreground: #000000;
-    --secondary: #171717;
+    --secondary: #262626;
     --secondary-foreground: #fafafa;
-    --muted: #171717;
+    --muted: #262626;
     --muted-foreground: #a3a3a3;
-    --accent: #171717;
+    --accent: #262626;
     --accent-foreground: #fafafa;
-    --border: #262626;
-    --input: #262626;
+    --border: #404040;
+    --input: #404040;
     --ring: #ffffff;
   }
 }
@@ -135,4 +135,15 @@ body {
 /* Input styles */
 .input {
   @apply w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-200;
+}
+
+/* Ensure inputs have visible borders in dark mode */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="url"],
+input[type="search"],
+textarea,
+select {
+  @apply border border-input;
 }
