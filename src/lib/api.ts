@@ -158,10 +158,10 @@ export const workspaceApi = {
   },
 }
 
-// Auth API (BetterAuth)
+// Auth API (Custom JWT-based)
 export const authApi = {
   async signUp(email: string, password: string, name?: string): Promise<{ id: string; email: string; name?: string }> {
-    const res = await fetch(`${API_BASE}/auth/sign-up`, {
+    const res = await fetch(`${API_BASE}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, name }),
@@ -170,7 +170,7 @@ export const authApi = {
   },
 
   async signIn(email: string, password: string): Promise<{ id: string; email: string; name?: string }> {
-    const res = await fetch(`${API_BASE}/auth/sign-in`, {
+    const res = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -179,17 +179,12 @@ export const authApi = {
   },
 
   async signOut(): Promise<void> {
-    const res = await fetch(`${API_BASE}/auth/sign-out`, { method: 'POST' })
+    const res = await fetch(`${API_BASE}/auth/logout`, { method: 'POST' })
     if (!res.ok) throw new Error('Failed to sign out')
   },
 
-  async getSession(): Promise<{ user: { id: string; email: string; name?: string } }> {
-    const res = await fetch(`${API_BASE}/auth/get-session`)
-    return handleResponse(res)
-  },
-
-  async listSessions(): Promise<{ sessions: Array<{ id: string; expiresAt: string }> }> {
-    const res = await fetch(`${API_BASE}/auth/list-sessions`)
+  async getSession(): Promise<{ data: { id: string; email: string; name?: string } }> {
+    const res = await fetch(`${API_BASE}/auth/me`)
     return handleResponse(res)
   },
 }

@@ -8,19 +8,9 @@ const JWT_SECRET = new TextEncoder().encode(
   process.env.BETTER_AUTH_SECRET || "default-dev-secret-change-in-production"
 )
 
-const getDbProvider = (): "sqlite" | "postgresql" => {
-  const dbUrl = process.env.DATABASE_URL || ""
-  if (dbUrl.includes("postgresql") || dbUrl.includes("postgres://")) {
-    return "postgresql"
-  }
-  return "sqlite"
-}
-
-const dbProvider = getDbProvider()
-
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
-    provider: dbProvider,
+    provider: "postgresql",
   }),
   emailAndPassword: {
     enabled: true,

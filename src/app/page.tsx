@@ -69,17 +69,17 @@ export default function Home() {
   const [isCreatingTag, setIsCreatingTag] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
-  // Check authentication on mount using BetterAuth's getSession
+  // Check authentication on mount
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const res = await fetch("/api/auth/get-session");
+        const res = await fetch("/api/auth/me");
         if (!res.ok) {
           router.push("/login");
           return;
         }
         const data = await res.json();
-        if (!data.session) {
+        if (!data.data) {
           router.push("/login");
           return;
         }
@@ -93,7 +93,7 @@ export default function Home() {
 
   const handleLogout = async () => {
     try {
-      await fetch("/api/auth/sign-out", { method: "POST" });
+      await fetch("/api/auth/logout", { method: "POST" });
       router.push("/login");
       router.refresh();
     } catch (error) {
