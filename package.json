@@ -5,8 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
+    "build:local": "dotenv -e .env -- prisma generate && dotenv -e .env -- next build",
+    "build:prod": "dotenv -e .env.production -- prisma generate && dotenv -e .env.production -- next build",
     "postinstall": "prisma generate",
     "start": "next start",
+    "start:prod": "dotenv -e .env.production -- next start",
     "lint": "eslint",
     "test": "jest",
     "test:coverage": "jest --coverage"
