@@ -83,7 +83,7 @@ describe("BookmarkCard", () => {
       />,
     );
 
-    expect(screen.getByTitle("Open URL")).toHaveAttribute(
+    expect(screen.getByTitle("Open URL")).toHaveProperty(
       "href",
       "https://primary.com",
     );

@@ -49,9 +49,11 @@ export const createTagSchema = z.object({
 
 // Sanitize search query - prevent injection
 export function sanitizeSearchQuery(query: string): string {
-  // Remove potential SQL injection patterns
   return query
-    .replace(/['";\\]/g, '') // Remove quotes and semicolons
-    .replace(/(--|#|\/\*|\*\/)/g, '') // Remove comment patterns
+    .replace(/['";\\]/g, '')
+    .replace(/--/g, '')
+    .replace(/#/g, '')
+    .replace(/\/\*/g, '')
+    .replace(/\*\//g, '')
     .trim()
 }
