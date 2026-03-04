@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Moon, Sun, Monitor } from "lucide-react";
 import { useThemeStore } from "@/lib/theme";
+import { Button } from "@/components/ui/button";
 
 export function ThemeToggle() {
   const { theme, setTheme } = useThemeStore();
@@ -23,12 +24,13 @@ export function ThemeToggle() {
   if (!mounted) return null;
 
   return (
-    <button
+    <Button
+      variant="ghost"
+      size="icon"
       onClick={cycleTheme}
-      className="p-2.5 rounded-xl bg-secondary text-secondary-foreground hover:bg-accent hover:text-accent-foreground transition-all duration-200"
       title={`Current: ${theme} mode`}
     >
       <Icon className="w-4 h-4" />
-    </button>
+    </Button>
   );
 }

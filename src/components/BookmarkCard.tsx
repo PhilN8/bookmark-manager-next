@@ -12,6 +12,15 @@ import { Bookmark } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 interface BookmarkCardProps {
   bookmark: Bookmark;
@@ -35,7 +44,6 @@ export function BookmarkCard({
   onToggleTag,
 }: BookmarkCardProps) {
   const primaryUrl = bookmark.urls.find((u) => u.isPrimary) || bookmark.urls[0];
-  const [showFolderSelect, setShowFolderSelect] = useState(false);
 
   return (
     <div className="group bg-card border border-border rounded-xl p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
@@ -53,39 +61,38 @@ export function BookmarkCard({
 
         <div className="flex items-center gap-1 transition-opacity duration-200">
           {primaryUrl && (
-            <a
-              href={primaryUrl.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-2 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors"
-              title="Open URL"
-            >
-              <ExternalLink className="w-4 h-4" />
-            </a>
+            <Button variant="ghost" size="icon" asChild>
+              <a
+                href={primaryUrl.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Open URL"
+              >
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            </Button>
           )}
-          <button
-            onClick={() => onEdit(bookmark)}
-            className="p-2 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors"
-            title="Edit"
-          >
+          <Button variant="ghost" size="icon" onClick={() => onEdit(bookmark)}>
             <Edit className="w-4 h-4" />
-          </button>
+          </Button>
           {bookmark.archived ? (
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => onRestore?.(bookmark.id)}
-              className="p-2 hover:bg-green-50 dark:hover:bg-green-950 rounded-lg text-muted-foreground hover:text-green-500 transition-colors"
-              title="Restore"
+              className="hover:text-green-500"
             >
               <ArchiveRestore className="w-4 h-4" />
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => onDelete(bookmark.id)}
-              className="p-2 hover:bg-red-50 dark:hover:bg-red-950 rounded-lg text-muted-foreground hover:text-red-500 transition-colors"
-              title="Archive"
+              className="hover:text-destructive"
             >
               <Trash2 className="w-4 h-4" />
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -121,12 +128,9 @@ export function BookmarkCard({
       {bookmark.tags.length > 0 && (
         <div className="mt-4 flex flex-wrap gap-1.5">
           {bookmark.tags.map(({ tag }) => (
-            <span
-              key={tag.id}
-              className="text-xs bg-secondary text-secondary-foreground px-2.5 py-1 rounded-full font-medium"
-            >
+            <Badge key={tag.id} variant="secondary" className="text-xs">
               {tag.name}
-            </span>
+            </Badge>
           ))}
         </div>
       )}
@@ -138,58 +142,45 @@ export function BookmarkCard({
         </div>
       )}
 
-      {/* Quick Folder Change */}
-      <div className="mt-3 relative">
-        <button
-          onClick={() => setShowFolderSelect(!showFolderSelect)}
-          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <Folder className="w-3 h-3" />
-          <span>{bookmark.folder ? "Move to..." : "Add to folder..."}</span>
-        </button>
-        {showFolderSelect && (
-          <div className="absolute z-10 mt-1 py-1 bg-card border border-border rounded-lg shadow-lg min-w-32">
-            <button
-              onClick={() => {
-                onMoveFolder(bookmark.id, "");
-                setShowFolderSelect(false);
-              }}
-              className="w-full px-3 py-1.5 text-left text-xs hover:bg-secondary"
+      <div className="mt-3 flex items-center gap-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground">
+              <Folder className="w-3 h-3 mr-1" />
+              {bookmark.folder ? "Move to..." : "Add to folder..."}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuItem
+              onClick={() => onMoveFolder(bookmark.id, "")}
             >
               No folder
-            </button>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             {folders.map((folder) => (
-              <button
+              <DropdownMenuItem
                 key={folder.id}
-                onClick={() => {
-                  onMoveFolder(bookmark.id, folder.id);
-                  setShowFolderSelect(false);
-                }}
-                className="w-full px-3 py-1.5 text-left text-xs hover:bg-secondary"
+                onClick={() => onMoveFolder(bookmark.id, folder.id)}
               >
                 {folder.name}
-              </button>
+              </DropdownMenuItem>
             ))}
-          </div>
-        )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
-      {/* Quick Tag Toggle */}
       <div className="mt-3 flex flex-wrap gap-1.5">
         {tags.map((tag) => {
           const hasTag = bookmark.tags.some((t) => t.tag.id === tag.id);
           return (
-            <button
+            <Badge
               key={tag.id}
+              variant={hasTag ? "default" : "secondary"}
+              className="cursor-pointer text-xs"
               onClick={() => onToggleTag(bookmark.id, tag.id)}
-              className={`text-xs px-2 py-1 rounded-full font-medium transition-all ${
-                hasTag
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-secondary-foreground hover:bg-accent"
-              }`}
             >
               {tag.name}
-            </button>
+            </Badge>
           );
         })}
       </div>
