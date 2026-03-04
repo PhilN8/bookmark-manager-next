@@ -9,7 +9,7 @@ describe("ConfirmModal", () => {
   it("does not render when closed", () => {
     render(
       <ConfirmModal
-        isOpen={false}
+        open={false}
         title="Archive bookmark"
         message="This can be restored later"
         onConfirm={jest.fn()}
@@ -25,7 +25,7 @@ describe("ConfirmModal", () => {
 
     const { container } = render(
       <ConfirmModal
-        isOpen
+        open
         title="Delete"
         message="Are you sure?"
         cancelLabel="Keep"
@@ -51,7 +51,7 @@ describe("ConfirmModal", () => {
 
     render(
       <ConfirmModal
-        isOpen
+        open
         title="Delete"
         message="This cannot be undone"
         confirmLabel="Delete"
@@ -72,7 +72,7 @@ describe("ConfirmModal", () => {
   it("renders success variant and restore icon path", () => {
     render(
       <ConfirmModal
-        isOpen
+        open
         title="Restore"
         message="Bring this bookmark back"
         confirmLabel="Restore"
