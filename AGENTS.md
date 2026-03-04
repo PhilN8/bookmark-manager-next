@@ -89,6 +89,38 @@ NEVER use:
 - No log statements (`console.log`, `debugger`) in tests or production code
 - Features without tests are incomplete - every new feature or bug fix needs test coverage
 
+#### Jest Best Practices
+
+**Test Environment & Setup**:
+- Use `@jest-environment jsdom` pragma for component/React tests to enable DOM APIs (rendering, events)
+- Avoid mixing integration (DB-dependent) and unit tests in same suite
+- Use `describe.skip` for integration tests when `DATABASE_URL` is unavailable
+- Mock external dependencies (e.g., `next/navigation`, API calls) with `jest.mock()`
+
+**Assertions & Mocking**:
+- Use `jest.fn()` to track function calls and arguments
+- Prefer query methods like `screen.getByRole()`, `screen.getByText()` over container refs
+- Use `toHaveAttribute()` for loose matching of URLs (browsers normalize trailing slashes)
+- Mock `useRouter()` from `next/navigation` when testing Next.js components
+
+**Async & Timing**:
+- Use `renderHook()` from `@testing-library/react` for custom hooks
+- Use `jest.useFakeTimers()` and `act()` to control time for debounce/throttle tests
+- Use `waitFor()` with appropriate timeout for async operations
+- Always clean up fake timers: `jest.useRealTimers()` in afterEach
+
+**High-Coverage Patterns**:
+- Test component branches: rendered/not rendered, different states, interactions
+- Test both success and error paths (e.g., validation failure, API error)
+- Use realistic mock data that matches schema shapes
+- Document complex mock setup inline for clarity
+
+**CI/Test Organization**:
+- Unit tests (`src/tests/unit/`) for hooks, utilities, schemas—fast, no external dependencies
+- Component tests (`src/tests/components/`) for React components—jsdom required
+- Feature tests (`src/tests/feature/`) for integration with Prisma—skip without `DATABASE_URL`
+- Current coverage target: **50%+ statements; 100% on new/changed code**
+
 ### Zod Validation
 
 - Use `safeParse()` instead of `parse()` for validation (never throw on invalid input)
@@ -109,6 +141,7 @@ NEVER use:
 - Use Prisma for database operations
 - Follow migrations carefully - ensure backward compatibility
 - Test database operations with proper setup/teardown
+- Skip DB-dependent tests gracefully when environment is missing (use `describe.skip`)
 
 ### Component Development
 

@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    
+
     // Validate input with Zod
     const validation = createTagSchema.safeParse(body)
     if (!validation.success) {
@@ -98,7 +98,7 @@ export async function DELETE(request: NextRequest) {
   if (!id) {
     return NextResponse.json({ error: 'ID is required' }, { status: 400 })
   }
-  const idValidation = z.string().uuid().safeParse(id)
+  const idValidation = z.uuid().safeParse(id)
   if (!idValidation.success) {
     return NextResponse.json({ error: 'Invalid ID format' }, { status: 400 })
   }

@@ -52,12 +52,12 @@ export function ConfirmModal({
 
         <div className="flex items-start gap-4">
           <div
-            className={`flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center ${
+            className={`shrink-0 w-12 h-12 rounded-xl flex items-center justify-center ${
               variant === "danger"
                 ? "bg-red-100 dark:bg-red-950 text-red-500"
                 : variant === "success"
-                ? "bg-green-100 dark:bg-green-950 text-green-500"
-                : "bg-primary/10 text-primary"
+                  ? "bg-green-100 dark:bg-green-950 text-green-500"
+                  : "bg-primary/10 text-primary"
             }`}
           >
             {iconComponent[icon]}
@@ -82,8 +82,8 @@ export function ConfirmModal({
               variant === "danger"
                 ? "bg-red-500 text-white hover:bg-red-600"
                 : variant === "success"
-                ? "bg-green-500 text-white hover:bg-green-600"
-                : "bg-primary text-primary-foreground hover:opacity-90"
+                  ? "bg-green-500 text-white hover:bg-green-600"
+                  : "bg-primary text-primary-foreground hover:opacity-90"
             }`}
           >
             {confirmLabel}

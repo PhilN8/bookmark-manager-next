@@ -14,11 +14,11 @@ jest.mock('@/lib/auth', () => ({
 describe('Auth API Validation', () => {
   it('should validate email format', async () => {
     const { z } = await import('zod')
-    const emailSchema = z.string().email()
+    const emailSchema = z.email()
 
     // Valid email
     expect(emailSchema.safeParse('test@example.com').success).toBe(true)
-    
+
     // Invalid emails
     expect(emailSchema.safeParse('invalid').success).toBe(false)
     expect(emailSchema.safeParse('test@').success).toBe(false)
@@ -31,7 +31,7 @@ describe('Auth API Validation', () => {
 
     // Valid password
     expect(passwordSchema.safeParse('password123').success).toBe(true)
-    
+
     // Invalid passwords
     expect(passwordSchema.safeParse('12345').success).toBe(false)
     expect(passwordSchema.safeParse('').success).toBe(false)

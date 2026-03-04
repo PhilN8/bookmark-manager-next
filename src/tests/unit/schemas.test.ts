@@ -1,7 +1,6 @@
 import {
   bookmarkUrlSchema,
   createBookmarkSchema,
-  updateBookmarkSchema,
   createFolderSchema,
   updateFolderSchema,
   createTagSchema,
@@ -146,13 +145,30 @@ describe('Zod Schemas', () => {
         expect(result.success).toBe(false)
       })
 
-      it('should accept invalid folderId as nullable', () => {
+      it('should accept folderId as null', () => {
+        const result = createBookmarkSchema.safeParse({
+          title: 'Test',
+          folderId: null,
+          urls: [{ url: 'https://example.com' }],
+        })
+        expect(result.success).toBe(true)
+      })
+
+      it('should accept folderId as undefined', () => {
+        const result = createBookmarkSchema.safeParse({
+          title: 'Test',
+          urls: [{ url: 'https://example.com' }],
+        })
+        expect(result.success).toBe(true)
+      })
+
+      it('should reject invalid UUID folderId', () => {
         const result = createBookmarkSchema.safeParse({
           title: 'Test',
           folderId: 'not-a-uuid',
           urls: [{ url: 'https://example.com' }],
         })
-        expect(result.success).toBe(true)
+        expect(result.success).toBe(false)
       })
     })
   })

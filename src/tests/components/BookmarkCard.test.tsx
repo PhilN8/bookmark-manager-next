@@ -4,7 +4,7 @@
 
 import { fireEvent, render, screen } from "@testing-library/react";
 import { BookmarkCard } from "@/components/BookmarkCard";
-import type { Bookmark } from "@/lib/store";
+import type { Bookmark } from "@/lib/types"; // Update path based on where Bookmark is actually defined
 
 describe("BookmarkCard", () => {
   const bookmark: Bookmark = {
@@ -83,9 +83,9 @@ describe("BookmarkCard", () => {
       />,
     );
 
-    expect(screen.getByTitle("Open URL")).toHaveProperty(
+    expect(screen.getByTitle("Open URL")).toHaveAttribute(
       "href",
-      "https://primary.com",
+      expect.stringContaining("https://primary.com"),
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Add to folder..." }));
@@ -98,5 +98,47 @@ describe("BookmarkCard", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Design" }));
     expect(onToggleTag).toHaveBeenCalledWith("bookmark-1", "tag-2");
+  });
+
+  it("renders archived state with restore action and URL overflow", () => {
+    const onRestore = jest.fn();
+
+    render(
+      <BookmarkCard
+        bookmark={{
+          ...bookmark,
+          archived: true,
+          urls: [
+            ...bookmark.urls,
+            {
+              id: "url-3",
+              url: "https://third.com",
+              isPrimary: false,
+              label: null,
+            },
+            {
+              id: "url-4",
+              url: "https://fourth.com",
+              isPrimary: false,
+              label: null,
+            },
+          ],
+          folder: { id: "folder-1", name: "Work" },
+        }}
+        folders={folders}
+        tags={tags}
+        onEdit={jest.fn()}
+        onDelete={jest.fn()}
+        onRestore={onRestore}
+        onMoveFolder={jest.fn()}
+        onToggleTag={jest.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTitle("Restore"));
+    expect(onRestore).toHaveBeenCalledWith("bookmark-1");
+    expect(screen.queryByTitle("Archive")).toBeNull();
+    expect(screen.getByText("+1 more")).toBeInTheDocument();
+    expect(screen.getByText("Work")).toBeInTheDocument();
   });
 });

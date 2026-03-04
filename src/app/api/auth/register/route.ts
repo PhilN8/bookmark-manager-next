@@ -5,7 +5,7 @@ import { createToken, setAuthCookie } from '@/lib/auth'
 import { z } from 'zod'
 
 const registerSchema = z.object({
-  email: z.string().email(),
+  email: z.email(),
   password: z.string().min(6),
 })
 
@@ -13,7 +13,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
     const validation = registerSchema.safeParse(body)
-    
+
     if (!validation.success) {
       return NextResponse.json(
         { error: 'Invalid email or password' },
@@ -34,8 +34,8 @@ export async function POST(request: Request) {
     const passwordHash = await hash(password, 10)
 
     const user = await prisma.user.create({
-      data: { 
-        email, 
+      data: {
+        email,
         passwordHash,
         emailVerified: false,
       },

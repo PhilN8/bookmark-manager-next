@@ -222,8 +222,8 @@ export function cn(...inputs: ClassValue[]) {
 export const createBookmarkSchema = z.object({
   title: z.string().min(1, 'Title is required').max(500),
   description: z.string().max(2000).optional(),
-  folderId: z.string().optional().nullable(),
-  tags: z.array(z.string().uuid()).optional(),
+  folderId: z.uuid().nullish(),
+  tags: z.array(z.uuid()).optional(),
   urls: z.array(bookmarkUrlSchema).min(1, 'At least one URL is required'),
 })
 ```

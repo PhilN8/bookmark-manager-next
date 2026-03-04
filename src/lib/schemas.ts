@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 // Bookmark URL validation
 export const bookmarkUrlSchema = z.object({
-  url: z.string().url('Invalid URL format'),
+  url: z.url(),
   isPrimary: z.boolean().optional(),
   label: z.string().optional(),
 })
@@ -11,8 +11,8 @@ export const bookmarkUrlSchema = z.object({
 export const createBookmarkSchema = z.object({
   title: z.string().min(1, 'Title is required').max(500),
   description: z.string().max(2000).optional(),
-  folderId: z.string().optional().nullable(),
-  tags: z.array(z.string().uuid()).optional(),
+  folderId: z.uuid().nullish(),
+  tags: z.array(z.uuid()).optional(),
   urls: z.array(bookmarkUrlSchema).min(1, 'At least one URL is required'),
   workspaceId: z.string().optional(),
 })
@@ -21,8 +21,8 @@ export const createBookmarkSchema = z.object({
 export const updateBookmarkSchema = z.object({
   title: z.string().min(1).max(500).optional(),
   description: z.string().max(2000).optional(),
-  folderId: z.string().optional().nullable(),
-  tags: z.array(z.string().uuid()).optional(),
+  folderId: z.uuid().nullish(),
+  tags: z.array(z.uuid()).optional(),
   urls: z.array(bookmarkUrlSchema).optional(),
   archived: z.boolean().optional(),
 })
@@ -30,14 +30,14 @@ export const updateBookmarkSchema = z.object({
 // Folder validation
 export const createFolderSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
-  parentId: z.string().uuid().optional().nullable(),
+  parentId: z.uuid().nullish(),
   workspaceId: z.string().optional(),
 })
 
 export const updateFolderSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   name: z.string().min(1).max(100).optional(),
-  parentId: z.string().uuid().optional().nullable(),
+  parentId: z.uuid().nullish(),
   order: z.number().int().optional(),
 })
 

@@ -6,7 +6,7 @@ import { checkRateLimit, getRateLimitIdentifier } from '@/lib/rateLimit'
 import { z } from 'zod'
 
 const loginSchema = z.object({
-  email: z.string().email(),
+  email: z.email(),
   password: z.string(),
 })
 
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
     const validation = loginSchema.safeParse(body)
-    
+
     if (!validation.success) {
       return NextResponse.json(
         { error: 'Invalid email or password' },

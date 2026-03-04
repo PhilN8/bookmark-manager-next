@@ -80,4 +80,23 @@ describe("FolderTree", () => {
     fireEvent.click(screen.getByLabelText("Delete folder Work"));
     expect(onDeleteFolder).toHaveBeenCalledWith("folder-1");
   });
+
+  it("expands parent folders to reveal children", () => {
+    const { container } = render(
+      <FolderTree
+        folders={folders}
+        selectedFolderId={null}
+        onSelectFolder={jest.fn()}
+        onCreateFolder={jest.fn()}
+      />,
+    );
+
+    expect(screen.queryByText("Project")).toBeNull();
+
+    const expandButton = container.querySelector("button.p-0\\.5");
+    expect(expandButton).not.toBeNull();
+    fireEvent.click(expandButton as Element);
+
+    expect(screen.getByText("Project")).toBeInTheDocument();
+  });
 });

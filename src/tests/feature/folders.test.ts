@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma'
 
-describe('Folders Database Operations', () => {
+const describeIfDatabase = process.env.DATABASE_URL ? describe : describe.skip
+
+describeIfDatabase('Folders Database Operations', () => {
   const testWorkspaceId = 'test-workspace-folders-db'
   const testUserId = 'test-user-folders'
 

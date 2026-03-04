@@ -12,7 +12,7 @@ interface AppState {
   searchQuery: string
   showArchived: boolean
   isLoading: boolean
-  
+
   setBookmarks: (bookmarks: Bookmark[]) => void
   setFolders: (folders: Folder[]) => void
   setTags: (tags: Tag[]) => void
@@ -36,7 +36,7 @@ export const useStore = create<AppState>((set) => ({
   searchQuery: '',
   showArchived: false,
   isLoading: false,
-  
+
   setBookmarks: (bookmarks) => set({ bookmarks }),
   setFolders: (folders) => set({ folders }),
   setTags: (tags) => set({ tags }),
