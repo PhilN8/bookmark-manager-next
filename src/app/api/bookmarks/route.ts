@@ -53,10 +53,18 @@ export async function GET(request: NextRequest) {
     }
 
     if (sanitizedQ) {
+      // FTS via GIN index on searchVector (title + description)
+      const ftsResults = await prisma.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "Bookmark"
+        WHERE "workspaceId" = ${workspaceId}
+          AND "searchVector" @@ websearch_to_tsquery('english', ${sanitizedQ})
+      `
+      const ftsIds = ftsResults.map((r) => r.id)
+
+      // Combine: FTS matches OR URL contains match
       where.OR = [
-        { title: { contains: sanitizedQ } },
-        { description: { contains: sanitizedQ } },
-        { urls: { some: { url: { contains: sanitizedQ } } } }
+        ...(ftsIds.length > 0 ? [{ id: { in: ftsIds } }] : []),
+        { urls: { some: { url: { contains: sanitizedQ } } } },
       ]
     }
 
