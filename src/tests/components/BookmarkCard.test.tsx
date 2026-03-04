@@ -2,8 +2,8 @@
 
 "use client";
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { BookmarkCard } from "@/features/bookmarks/BookmarkCard";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { BookmarkCard } from "@/features/bookmarks/components/BookmarkCard";
 import type { Bookmark } from "@/lib/types";
 
 describe("BookmarkCard", () => {

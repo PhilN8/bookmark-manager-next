@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Building2, Plus, Check } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { workspaceApi } from "@/lib/api";
+import { useWorkspaces } from "../hooks/useWorkspaces";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,46 +16,22 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function WorkspaceSwitcher() {
-  const { workspaces, setWorkspaces, selectedWorkspaceId, setSelectedWorkspaceId } = useStore();
+  const { selectedWorkspaceId, setSelectedWorkspaceId } = useStore();
+  const { workspaces, createWorkspace } = useWorkspaces();
   const [isCreating, setIsCreating] = useState(false);
   const [newWorkspaceName, setNewWorkspaceName] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
 
-  const selectedWorkspace = workspaces?.find(w => w.id === selectedWorkspaceId);
+  const selectedWorkspace = workspaces.find((w) => w.id === selectedWorkspaceId);
 
-  useEffect(() => {
-    loadWorkspaces();
-  }, []);
-
-  const loadWorkspaces = async () => {
-    setIsLoading(true);
-    try {
-      const userId = "default-user";
-      const data = await workspaceApi.getAll(userId);
-      setWorkspaces(data);
-      if (data.length > 0 && !selectedWorkspaceId) {
-        setSelectedWorkspaceId(data[0].id);
-      }
-    } catch (error) {
-      console.error("Error loading workspaces:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleCreateWorkspace = async () => {
-    if (!newWorkspaceName.trim()) return;
-    
-    try {
-      const userId = "default-user";
-      const workspace = await workspaceApi.create(newWorkspaceName.trim(), userId);
-      setWorkspaces([...workspaces, workspace]);
-      setSelectedWorkspaceId(workspace.id);
-      setNewWorkspaceName("");
-      setIsCreating(false);
-    } catch (error) {
-      console.error("Error creating workspace:", error);
-    }
+  const handleCreate = async () => {
+    const name = newWorkspaceName.trim();
+    if (!name) return;
+    createWorkspace.mutate(name, {
+      onSuccess: () => {
+        setNewWorkspaceName("");
+        setIsCreating(false);
+      },
+    });
   };
 
   return (
@@ -91,12 +67,11 @@ export function WorkspaceSwitcher() {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">{workspace.name}</p>
               <p className="text-xs text-muted-foreground">
-                {workspace._count?.bookmarks || 0} bookmarks • {workspace._count?.folders || 0} folders
+                {workspace._count?.bookmarks || 0} bookmarks •{" "}
+                {workspace._count?.folders || 0} folders
               </p>
             </div>
-            {workspace.id === selectedWorkspaceId && (
-              <Check className="w-4 h-4" />
-            )}
+            {workspace.id === selectedWorkspaceId && <Check className="w-4 h-4" />}
           </DropdownMenuItem>
         ))}
 
@@ -116,13 +91,13 @@ export function WorkspaceSwitcher() {
               value={newWorkspaceName}
               onChange={(e) => setNewWorkspaceName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") handleCreateWorkspace();
+                if (e.key === "Enter") handleCreate();
                 if (e.key === "Escape") setIsCreating(false);
               }}
               className="h-8 text-sm"
               autoFocus
             />
-            <Button size="sm" onClick={handleCreateWorkspace}>
+            <Button size="sm" onClick={handleCreate} disabled={createWorkspace.isPending}>
               Add
             </Button>
           </div>

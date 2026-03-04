@@ -1,48 +1,47 @@
-import { useCallback } from "react";
-import { Folder } from "@/lib/types";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useStore } from "@/lib/store";
-
-const API_BASE = "/api";
+import { folderApi } from "@/lib/api";
 
 export function useFolders() {
-  const { folders, setFolders } = useStore();
+  const queryClient = useQueryClient();
+  const { user, selectedWorkspaceId } = useStore();
 
-  const fetchFolders = useCallback(async () => {
-    const res = await fetch(`${API_BASE}/folders`);
-    if (res.ok) setFolders(await res.json());
-  }, [setFolders]);
+  const query = useQuery({
+    queryKey: ["folders", selectedWorkspaceId],
+    queryFn: () =>
+      fetch(`/api/folders?workspaceId=${selectedWorkspaceId}`).then((r) => r.json()),
+    enabled: !!user && !!selectedWorkspaceId,
+  });
 
-  const createFolder = async (name: string, parentId?: string) => {
-    const res = await fetch(`${API_BASE}/folders`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, parentId }),
-    });
-    if (res.ok) fetchFolders();
-    return res;
-  };
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ["folders", selectedWorkspaceId] });
 
-  const updateFolder = async (id: string, name: string) => {
-    const res = await fetch(`${API_BASE}/folders`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, name }),
-    });
-    if (res.ok) fetchFolders();
-    return res;
-  };
+  const createFolder = useMutation({
+    mutationFn: ({ name, parentId }: { name: string; parentId?: string }) =>
+      fetch("/api/folders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, parentId, workspaceId: selectedWorkspaceId }),
+      }).then((r) => {
+        if (!r.ok) throw new Error("Failed to create folder");
+        return r.json();
+      }),
+    onSuccess: invalidate,
+  });
 
-  const deleteFolder = async (id: string) => {
-    const res = await fetch(`${API_BASE}/folders?id=${id}`, {
-      method: "DELETE",
-    });
-    if (res.ok) fetchFolders();
-    return res;
-  };
+  const updateFolder = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) => folderApi.update(id, name),
+    onSuccess: invalidate,
+  });
+
+  const deleteFolder = useMutation({
+    mutationFn: (id: string) => folderApi.delete(id),
+    onSuccess: invalidate,
+  });
 
   return {
-    folders,
-    fetchFolders,
+    folders: query.data ?? [],
+    isLoading: query.isLoading,
     createFolder,
     updateFolder,
     deleteFolder,

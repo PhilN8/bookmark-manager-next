@@ -1,109 +1,104 @@
-import { useState, useEffect, useCallback } from "react";
-import { Bookmark } from "@/lib/types";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useStore } from "@/lib/store";
+import { bookmarkApi } from "@/lib/api";
+import type { BookmarkFormData } from "@/lib/types";
 
-const API_BASE = "/api";
+export function bookmarkKeys(
+  workspaceId: string | null,
+  filters?: {
+    q?: string;
+    folder?: string | null;
+    tag?: string | null;
+    archived?: boolean;
+  }
+) {
+  return ["bookmarks", workspaceId, filters] as const;
+}
 
 export function useBookmarks() {
-  const { bookmarks, setBookmarks, isLoading, setIsLoading } = useStore();
-  const { selectedFolderId, selectedTagId, showArchived } = useStore();
-  const debouncedSearch = useStore((state) => state.searchQuery);
-  const [initialLoad, setInitialLoad] = useState(true);
+  const queryClient = useQueryClient();
+  const { user, selectedWorkspaceId, selectedFolderId, selectedTagId, showArchived, searchQuery } =
+    useStore();
 
-  const fetchBookmarks = useCallback(async () => {
-    setIsLoading(true);
-    try {
+  const filters = {
+    q: searchQuery || undefined,
+    folder: selectedFolderId || undefined,
+    tag: selectedTagId || undefined,
+    archived: showArchived || undefined,
+  };
+
+  const queryKey = bookmarkKeys(selectedWorkspaceId, filters);
+
+  const query = useQuery({
+    queryKey,
+    queryFn: () => {
       const params = new URLSearchParams();
-      if (debouncedSearch) params.set("q", debouncedSearch);
-      if (selectedFolderId) params.set("folder", selectedFolderId);
-      if (selectedTagId) params.set("tag", selectedTagId);
-      if (showArchived) params.set("archived", "true");
+      params.set("workspaceId", selectedWorkspaceId!);
+      if (filters.q) params.set("q", filters.q);
+      if (filters.folder) params.set("folder", filters.folder);
+      if (filters.tag) params.set("tag", filters.tag);
+      if (filters.archived) params.set("archived", "true");
+      return fetch(`/api/bookmarks?${params}`).then((r) => r.json());
+    },
+    enabled: !!user && !!selectedWorkspaceId,
+  });
 
-      const res = await fetch(`${API_BASE}/bookmarks?${params}`);
-      if (res.ok) setBookmarks(await res.json());
-    } catch (error) {
-      console.error("Error fetching bookmarks:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedFolderId, selectedTagId, showArchived, setBookmarks, setIsLoading, debouncedSearch]);
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ["bookmarks", selectedWorkspaceId] });
 
-  useEffect(() => {
-    fetchBookmarks().then(() => setInitialLoad(false));
-  }, [fetchBookmarks]);
+  const createBookmark = useMutation({
+    mutationFn: (data: BookmarkFormData & { workspaceId: string }) =>
+      bookmarkApi.create(data),
+    onSuccess: invalidate,
+  });
 
-  const createBookmark = async (data: {
-    title: string;
-    description?: string;
-    folderId?: string | null;
-    urls: { url: string; isPrimary: boolean; label?: string }[];
-    tags: string[];
-  }) => {
-    const res = await fetch(`${API_BASE}/bookmarks`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (res.ok) fetchBookmarks();
-    return res;
-  };
+  const updateBookmark = useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: Partial<BookmarkFormData & { archived: boolean }>;
+    }) => bookmarkApi.update(id, data),
+    onSuccess: invalidate,
+  });
 
-  const updateBookmark = async (id: string, data: Partial<{
-    title: string;
-    description?: string;
-    folderId?: string | null;
-    urls: { url: string; isPrimary: boolean; label?: string }[];
-    tags: string[];
-    archived: boolean;
-  }>) => {
-    const res = await fetch(`${API_BASE}/bookmarks/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (res.ok) fetchBookmarks();
-    return res;
-  };
+  const archiveBookmark = useMutation({
+    mutationFn: (id: string) => bookmarkApi.archive(id),
+    onSuccess: invalidate,
+  });
 
-  const deleteBookmark = async (id: string) => {
-    const res = await fetch(`${API_BASE}/bookmarks/${id}`, {
-      method: "DELETE",
-    });
-    if (res.ok) fetchBookmarks();
-    return res;
-  };
+  const restoreBookmark = useMutation({
+    mutationFn: (id: string) => bookmarkApi.update(id, { archived: false }),
+    onSuccess: invalidate,
+  });
 
-  const archiveBookmark = deleteBookmark;
-  
-  const restoreBookmark = async (id: string) => {
-    return updateBookmark(id, { archived: false });
-  };
+  const moveToFolder = useMutation({
+    mutationFn: ({ bookmarkId, folderId }: { bookmarkId: string; folderId: string | null }) =>
+      bookmarkApi.moveToFolder(bookmarkId, folderId),
+    onSuccess: invalidate,
+  });
 
-  const moveToFolder = async (bookmarkId: string, folderId: string) => {
-    return updateBookmark(bookmarkId, { folderId: folderId || null });
-  };
-
-  const toggleTag = async (bookmarkId: string, tagId: string) => {
-    const bookmark = bookmarks.find((b) => b.id === bookmarkId);
-    if (!bookmark) return null;
-
-    const hasTag = bookmark.tags.some((t) => t.tag.id === tagId);
-    const currentTagIds = bookmark.tags.map((t) => t.tag.id);
-    const newTagIds = hasTag
-      ? currentTagIds.filter((id) => id !== tagId)
-      : [...currentTagIds, tagId];
-
-    return updateBookmark(bookmarkId, { tags: newTagIds });
-  };
+  const toggleTag = useMutation({
+    mutationFn: ({ bookmarkId, tagId }: { bookmarkId: string; tagId: string }) => {
+      const bookmark = query.data?.find((b: { id: string }) => b.id === bookmarkId);
+      if (!bookmark) throw new Error("Bookmark not found");
+      const hasTag = bookmark.tags.some((t: { tag: { id: string } }) => t.tag.id === tagId);
+      const currentTagIds: string[] = bookmark.tags.map((t: { tag: { id: string } }) => t.tag.id);
+      const newTagIds = hasTag
+        ? currentTagIds.filter((id: string) => id !== tagId)
+        : [...currentTagIds, tagId];
+      return bookmarkApi.update(bookmarkId, { tags: newTagIds });
+    },
+    onSuccess: invalidate,
+  });
 
   return {
-    bookmarks,
-    isLoading,
-    initialLoad,
-    fetchBookmarks,
+    bookmarks: query.data ?? [],
+    isLoading: query.isLoading,
+    isPending: query.isPending,
     createBookmark,
     updateBookmark,
-    deleteBookmark,
     archiveBookmark,
     restoreBookmark,
     moveToFolder,

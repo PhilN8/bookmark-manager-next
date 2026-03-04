@@ -3,8 +3,8 @@
 "use client";
 
 import { fireEvent, render, screen } from "@testing-library/react";
-import { FolderTree } from "@/features/folders/FolderSidebar";
-import type { Folder } from "@/lib/store";
+import { FolderTree } from "@/features/folders/components/FolderSidebar";
+import type { Folder } from "@/lib/types";
 
 describe("FolderTree", () => {
   const folders: Folder[] = [

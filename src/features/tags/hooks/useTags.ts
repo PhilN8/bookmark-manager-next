@@ -1,37 +1,45 @@
-import { useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useStore } from "@/lib/store";
 
-const API_BASE = "/api";
-
 export function useTags() {
-  const { tags, setTags } = useStore();
+  const queryClient = useQueryClient();
+  const { user, selectedWorkspaceId } = useStore();
 
-  const fetchTags = useCallback(async () => {
-    const res = await fetch(`${API_BASE}/tags`);
-    if (res.ok) setTags(await res.json());
-  }, [setTags]);
+  const query = useQuery({
+    queryKey: ["tags", selectedWorkspaceId],
+    queryFn: () =>
+      fetch(`/api/tags?workspaceId=${selectedWorkspaceId}`).then((r) => r.json()),
+    enabled: !!user && !!selectedWorkspaceId,
+  });
 
-  const createTag = async (name: string) => {
-    const res = await fetch(`${API_BASE}/tags`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    });
-    if (res.ok) fetchTags();
-    return res;
-  };
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ["tags", selectedWorkspaceId] });
 
-  const deleteTag = async (id: string) => {
-    const res = await fetch(`${API_BASE}/tags?id=${id}`, {
-      method: "DELETE",
-    });
-    if (res.ok) fetchTags();
-    return res;
-  };
+  const createTag = useMutation({
+    mutationFn: (name: string) =>
+      fetch("/api/tags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, workspaceId: selectedWorkspaceId }),
+      }).then((r) => {
+        if (!r.ok) throw new Error("Failed to create tag");
+        return r.json();
+      }),
+    onSuccess: invalidate,
+  });
+
+  const deleteTag = useMutation({
+    mutationFn: (id: string) =>
+      fetch(`/api/tags?id=${id}`, { method: "DELETE" }).then((r) => {
+        if (!r.ok) throw new Error("Failed to delete tag");
+        return r.json();
+      }),
+    onSuccess: invalidate,
+  });
 
   return {
-    tags,
-    fetchTags,
+    tags: query.data ?? [],
+    isLoading: query.isLoading,
     createTag,
     deleteTag,
   };

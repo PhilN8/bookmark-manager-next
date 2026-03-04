@@ -11,7 +11,6 @@ import {
 import { Bookmark } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {

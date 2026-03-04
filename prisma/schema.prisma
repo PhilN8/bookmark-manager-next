@@ -173,7 +173,9 @@ model BookmarkUrl {
   bookmark   Bookmark   @relation(fields: [bookmarkId], references: [id], onDelete: Cascade)
   snapshots  Snapshot[]
 
-  @@unique([bookmarkId, isPrimary]) // Only one primary URL per bookmark
+  // Note: "only one primary per bookmark" is enforced in application logic.
+  // A @@unique([bookmarkId, isPrimary]) constraint would incorrectly also allow
+  // only one non-primary URL per bookmark (breaks at 3+ URLs).
   @@index([bookmarkId])
 }
 

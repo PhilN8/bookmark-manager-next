@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getAuthUser } from '@/lib/auth'
 import { z } from 'zod'
 
 const createWorkspaceSchema = z.object({
@@ -9,16 +10,21 @@ const createWorkspaceSchema = z.object({
 
 // GET /api/workspaces - List workspaces for a user
 export async function GET(request: NextRequest) {
+  const user = await getAuthUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const { searchParams } = new URL(request.url)
   const userId = searchParams.get('userId')
 
-  if (!userId) {
-    return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
+  if (userId !== user.id) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   try {
     const workspaces = await prisma.workspace.findMany({
-      where: { userId },
+      where: { userId: user.id },
       include: {
         _count: {
           select: {
@@ -40,6 +46,11 @@ export async function GET(request: NextRequest) {
 
 // POST /api/workspaces - Create a new workspace
 export async function POST(request: NextRequest) {
+  const user = await getAuthUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     const body = await request.json()
 
@@ -51,21 +62,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { name, userId } = validation.data
-
-    // Validate user exists
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    })
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
+    const { name } = validation.data
 
     const workspace = await prisma.workspace.create({
       data: {
         name,
-        userId,
+        userId: user.id,
       },
       include: {
         _count: {

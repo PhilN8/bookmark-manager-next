@@ -1,154 +1,349 @@
 # AGENTS.md
 
-This file provides guidance to AI assistants when working on code in this repository.
+This file provides guidance to AI assistants working in this repository.
+
+---
 
 ## Project Overview
 
-Bookmark Manager - A Next.js application for managing bookmarks with folders and tags.
+**Pearl** — a personal bookmark manager built with Next.js 16 (App Router). Users organise bookmarks into workspaces, folders and tags, with per-workspace search and archive/restore. The aesthetic draws from the Pearl Framer template: clean, minimal, characterful.
 
-## Design Direction
+---
 
-This project draws inspiration from the **Pearl** Framer template - a clean, modern, minimal portfolio design. The aesthetic direction is:
+## Architecture at a Glance
 
-- **Style**: Clean, minimalistic, modern
-- **Theme**: Light mode primary, support dark mode
-- **Typography**: Distinctive, characterful fonts (avoid generic choices like Inter, Roboto)
-- **Color**: Monochromatic with sharp accent colors, dominant colors with accents
-- **Motion**: Scroll effects, smooth transitions, micro-interactions
-- **Layout**: Generous negative space, refined spacing, grid-based but creative
+```
+src/
+├── app/                  # Next.js routes (pages + API)
+│   ├── layout.tsx        # Provider chain: ReactQuery → Theme → Auth
+│   ├── page.tsx          # Main app UI (orchestrates feature hooks/components)
+│   ├── login/            # Login page
+│   ├── register/         # Register page
+│   └── api/              # REST API routes
+│       ├── auth/         # login, register, logout, me
+│       ├── bookmarks/    # CRUD + archive/restore + tag operations
+│       ├── folders/      # CRUD with parent-child hierarchy
+│       ├── tags/         # CRUD scoped to workspace
+│       └── workspaces/   # CRUD with ownership checks
+├── features/             # Feature-scoped code (hooks + components + barrel exports)
+│   ├── auth/
+│   ├── bookmarks/
+│   ├── folders/
+│   ├── tags/
+│   └── workspaces/
+├── components/           # Shared cross-feature UI
+│   └── ui/               # shadcn/ui primitives
+├── lib/                  # Shared utilities and infrastructure
+│   ├── api.ts            # Typed fetch wrappers for every resource
+│   ├── auth.ts           # JWT helpers (createToken, verifyToken, getAuthUser)
+│   ├── prisma.ts         # Singleton PrismaClient
+│   ├── schemas.ts        # All Zod schemas
+│   ├── store.ts          # Zustand — UI state only
+│   ├── theme.ts          # Zustand persisted theme store
+│   ├── types.ts          # Shared TypeScript interfaces
+│   ├── useDebounce.ts    # Generic debounce hook
+│   └── utils.ts          # cn() class merge utility
+├── middleware.ts          # JWT auth guard for all /api/* routes
+└── tests/
+    ├── unit/
+    ├── components/
+    └── feature/
+```
+
+---
+
+## Tech Stack
+
+| Layer | Library | Version |
+|---|---|---|
+| Framework | Next.js (App Router) | 16 |
+| Language | TypeScript (strict mode) | 5 |
+| Database / ORM | Prisma + PostgreSQL (SQLite for local dev) | 5.22 |
+| Auth | Custom JWT via `jose` + `bcryptjs`; `better-auth` present but secondary | — |
+| Server state | `@tanstack/react-query` v5 | 5.90 |
+| Client UI state | Zustand v5 | 5.0 |
+| Validation | Zod v4 | 4.3 |
+| Styling | Tailwind CSS v4 + shadcn/ui + Radix UI | — |
+| Icons | lucide-react | — |
+| Toasts | sonner | — |
+| Testing | Jest 30 + Testing Library | — |
+
+---
 
 ## Development Commands
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run build:local` - Build with local environment
-- `npm run build:prod` - Build with production environment
-- `npm run db:setup` - Run database migrations
-- `npm run db:migrate` - Deploy migrations
-- `npm run db:push` - Push schema to database
-- `npm run lint` - Run ESLint
-- `npm test` - Run tests
-- `npm run test:coverage` - Run tests with coverage
+```bash
+npm run dev            # Start development server
+npm run build          # Production build
+npm run build:local    # Build with local env
+npm run build:prod     # Build with production env
+npm run db:setup       # Run migrations (initial setup)
+npm run db:migrate     # Deploy pending migrations
+npm run db:push        # Push schema changes (dev only)
+npm run lint           # ESLint
+npm test               # Run all tests
+npm run test:coverage  # Tests with coverage report
+```
 
-## Frontend Design Guidelines
+---
 
-### Design Thinking
+## Auth System
 
-Before coding any frontend component or page:
-1. **Understand the purpose** - What problem does this solve? Who is the audience?
-2. **Commit to a bold aesthetic direction** - Pick an extreme: minimal, maximalist, retro-futuristic, organic, luxury, playful, editorial, brutalist, etc.
-3. **Technical constraints** - Framework (Next.js), performance, accessibility
-4. **Differentiation** - What makes this interface memorable?
+The app uses **custom JWT cookie auth**. `better-auth` is installed but is not the primary auth path.
 
-### Aesthetic Principles
+### Flow
+1. `POST /api/auth/login` — verifies password with `bcryptjs`, signs a HS256 JWT (7d), sets `auth-token` httpOnly cookie.
+2. `src/middleware.ts` — runs on all `/api/*` routes; verifies the cookie JWT via `jose`, injects `x-user-id` / `x-user-email` headers. Public paths that bypass: `/api/auth/login`, `/api/auth/register`, `/api/auth/logout`, `/api/auth/me`.
+3. Protected API routes call `getAuthUser()` from `lib/auth.ts` which reads the cookie, verifies the JWT, and returns the full user from DB.
+4. The client session is managed by `useAuth` (in `features/auth/`) which queries `GET /api/auth/me`.
 
-**Typography**:
-- Choose distinctive, beautiful fonts that elevate the design
-- Avoid generic fonts: Arial, Inter, Roboto, system fonts
-- Pair a distinctive display font with a refined body font
-- Use typography as a design feature (sizing, weight, spacing)
+### Key helpers — `src/lib/auth.ts`
+- `getAuthUser()` — call this in every protected API route handler. Returns `null` if unauthenticated; return `401` immediately.
+- `createToken(payload)` / `verifyToken(token)` — JWT sign/verify.
+- `setAuthCookie(token)` / `clearAuthCookie()` — cookie config objects for responses.
 
-**Color & Theme**:
-- Use CSS variables for consistency
-- Commit to a cohesive aesthetic
-- Dominant colors with sharp accents beat timid, evenly-distributed palettes
-- Support both light and dark themes with careful consideration
+### API Route Auth Pattern
+```ts
+const user = await getAuthUser();
+if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+```
+All resource routes must also enforce **ownership**: verify the requested resource belongs to `user.id` before returning or mutating it.
 
-**Motion & Animations**:
-- Use animations for effects and micro-interactions
-- Prioritize CSS-only solutions where possible
-- Focus on high-impact moments: staggered reveals, scroll-triggering
-- One well-orchestrated animation creates more delight than scattered micro-interactions
+---
 
-**Spatial Composition**:
-- Unexpected layouts, asymmetry, overlap
-- Generous negative space OR controlled density
-- Grid-breaking elements where appropriate
+## State Management
 
-**Visual Details**:
-- Create atmosphere and depth (not just solid colors)
-- Subtle shadows, layered transparencies, decorative borders
-- Contextual effects and textures that match the aesthetic
+State is split cleanly between server state (React Query) and client UI state (Zustand). **Never mix them.**
 
-### What to Avoid
+### React Query — server state
+All data fetched from the API lives here. No manual `fetch`/`useEffect`/`setIsLoading` patterns.
 
-NEVER use:
-- Generic AI-generated aesthetics
-- Overused fonts (Inter, Roboto, Arial, system fonts)
-- Clichéd color schemes (purple gradients on white)
-- Predictable layouts and component patterns
-- Cookie-cutter design lacking character
+**Query key conventions:**
+```ts
+["auth", "session"]
+["workspaces", userId]
+["bookmarks", workspaceId, { q, folder, tag, archived }]
+["folders", workspaceId]
+["tags", workspaceId]
+```
 
-## Rules
+**Global defaults** (in `ReactQueryProvider.tsx`):
+- `staleTime: 30s`, `gcTime: 5min`, `retry: 1`, `refetchOnWindowFocus: false`
 
-### Testing (Zod & General)
+**Mutation + invalidation pattern:**
+```ts
+const createX = useMutation({
+  mutationFn: (data) => xApi.create(data),
+  onSuccess: () => queryClient.invalidateQueries({ queryKey: ["x", workspaceId] }),
+});
+```
+Always invalidate after mutations. Scope invalidation to the current workspace.
 
-- All tests must be written in TypeScript
-- Use Jest for testing framework
-- Test both success and failure cases with edge cases
-- No log statements (`console.log`, `debugger`) in tests or production code
-- Features without tests are incomplete - every new feature or bug fix needs test coverage
+**v5 syntax rules:**
+- Use `isPending` (not `isLoading`) on mutations.
+- Use `gcTime` (not `cacheTime`).
+- Options are object-only (no positional overloads).
 
-#### Jest Best Practices
+### Zustand — client UI state only
+`src/lib/store.ts` holds **only** UI selection state and user identity. It does **not** hold server data arrays.
 
-**Test Environment & Setup**:
-- Use `@jest-environment jsdom` pragma for component/React tests to enable DOM APIs (rendering, events)
-- Avoid mixing integration (DB-dependent) and unit tests in same suite
-- Use `describe.skip` for integration tests when `DATABASE_URL` is unavailable
-- Mock external dependencies (e.g., `next/navigation`, API calls) with `jest.mock()`
+```ts
+// What belongs in useStore:
+user                  // Identity mirror — synced from React Query via useEffect in useAuth
+selectedWorkspaceId   // Active workspace
+selectedFolderId      // Active folder filter
+selectedTagId         // Active tag filter
+searchQuery           // Live search input value
+showArchived          // Archive view toggle
+```
 
-**Assertions & Mocking**:
-- Use `jest.fn()` to track function calls and arguments
-- Prefer query methods like `screen.getByRole()`, `screen.getByText()` over container refs
-- Use `toHaveAttribute()` for loose matching of URLs (browsers normalize trailing slashes)
-- Mock `useRouter()` from `next/navigation` when testing Next.js components
+**Do not add** `bookmarks`, `folders`, `tags`, `workspaces`, `isLoading`, or any server data to the Zustand store. React Query owns that.
 
-**Async & Timing**:
-- Use `renderHook()` from `@testing-library/react` for custom hooks
-- Use `jest.useFakeTimers()` and `act()` to control time for debounce/throttle tests
-- Use `waitFor()` with appropriate timeout for async operations
-- Always clean up fake timers: `jest.useRealTimers()` in afterEach
+`src/lib/theme.ts` is a separate persisted Zustand store for the `light`/`dark`/`system` theme preference. Do not merge it with `useStore`.
 
-**High-Coverage Patterns**:
-- Test component branches: rendered/not rendered, different states, interactions
-- Test both success and error paths (e.g., validation failure, API error)
-- Use realistic mock data that matches schema shapes
-- Document complex mock setup inline for clarity
+---
 
-**CI/Test Organization**:
-- Unit tests (`src/tests/unit/`) for hooks, utilities, schemas—fast, no external dependencies
-- Component tests (`src/tests/components/`) for React components—jsdom required
-- Feature tests (`src/tests/feature/`) for integration with Prisma—skip without `DATABASE_URL`
-- Current coverage target: **50%+ statements; 100% on new/changed code**
+## Feature Structure
 
-### Zod Validation
+Each feature lives in `src/features/<name>/` and follows this structure:
 
-- Use `safeParse()` instead of `parse()` for validation (never throw on invalid input)
-- Test both successful parses and validation failures
-- Test edge cases: empty strings, max lengths, invalid formats
-- Define reusable schemas in `src/lib/schemas.ts`
-- Use custom error messages for better UX
+```
+features/<name>/
+├── components/     # UI components owned by this feature
+├── hooks/
+│   ├── use<Name>.ts   # The primary data hook
+│   └── index.ts       # Barrel: export { use<Name> }
+├── server/         # (reserved) Server Actions, if added
+└── index.ts        # Feature barrel: export { Component, useHook }
+```
 
-### Code Style
+### Rules
+- Always create `hooks/index.ts` and `index.ts` barrel exports.
+- Hooks use `useStore` for workspace/filter/user context, and React Query for data fetching.
+- Components import from their own feature hooks, not from sibling features.
+- `page.tsx` imports from feature barrels only — no deep imports into feature internals.
 
-- Follow existing patterns in the codebase
-- Use TypeScript strictly
-- Use Zod for runtime validation
-- Keep validation logic centralized in schemas
+### Existing features
 
-### Database
+| Feature | Hook | Components | Query key |
+|---|---|---|---|
+| `auth` | `useAuth` | — | `["auth", "session"]` |
+| `bookmarks` | `useBookmarks` | `BookmarkCard`, `BookmarkForm` | `["bookmarks", workspaceId, filters]` |
+| `folders` | `useFolders` | `FolderTree` | `["folders", workspaceId]` |
+| `tags` | `useTags` | `TagList` | `["tags", workspaceId]` |
+| `workspaces` | `useWorkspaces` | `WorkspaceSwitcher` | `["workspaces", userId]` |
 
-- Use Prisma for database operations
-- Follow migrations carefully - ensure backward compatibility
-- Test database operations with proper setup/teardown
-- Skip DB-dependent tests gracefully when environment is missing (use `describe.skip`)
+---
 
-### Component Development
+## API Layer — `src/lib/api.ts`
 
-When creating or editing components:
-1. Match implementation complexity to the aesthetic vision
-2. For minimalist designs: precision, restraint, careful attention to spacing
-3. For maximalist designs: elaborate code with extensive animations
-4. Every component should feel genuinely designed, not AI-generated
-5. Consider animations, hover states, transitions
-6. Use the `cn()` utility for class merging
+Typed fetch wrapper objects exist for every resource: `bookmarkApi`, `folderApi`, `tagApi`, `workspaceApi`, `authApi`. Use these in hooks instead of writing raw `fetch` calls.
+
+```ts
+// Prefer:
+bookmarkApi.create(data)
+// Over:
+fetch('/api/bookmarks', { method: 'POST', body: JSON.stringify(data), ... })
+```
+
+Currently `useFolders` and `useTags` use inline `fetch`. When touching those hooks, migrate them to `folderApi` / `tagApi`.
+
+---
+
+## Database
+
+### Schema highlights
+- `Workspace` scopes all data — every `Bookmark`, `Folder`, and `Tag` belongs to a workspace.
+- Bookmarks are **soft-deleted** (`archived: true`). Hard delete is not implemented.
+- `Tag.name` is unique per workspace (`@@unique([workspaceId, name])`).
+- `Folder` is self-referential with `parentId`; deleting a folder moves its bookmarks to root via `$transaction`.
+- `BookmarkUrl.isPrimary` is enforced in application logic, not a DB constraint.
+
+### Rules
+- Use `getAuthUser()` + ownership checks in all API routes — never trust a resource ID without verifying it belongs to the authenticated user.
+- Write migrations for all schema changes. Never use `db:push` in production.
+- Use `$transaction` when an operation involves multiple writes that must be atomic.
+- Test database operations in `src/tests/feature/` using `describeIfDatabase` (skips gracefully when `DATABASE_URL` is absent).
+
+---
+
+## Validation
+
+All validation uses Zod. Schemas live in `src/lib/schemas.ts`.
+
+```ts
+// Always safeParse — never parse (never throw on invalid input)
+const result = createBookmarkSchema.safeParse(body);
+if (!result.success) {
+  return NextResponse.json({ error: result.error.flatten() }, { status: 400 });
+}
+```
+
+- Define reusable schemas in `src/lib/schemas.ts`, not inline in route handlers.
+- Write custom error messages for user-facing validation failures.
+- Test both valid and invalid cases, including boundary conditions (max lengths, empty strings, invalid formats).
+
+---
+
+## Testing
+
+### Organisation
+
+| Directory | Environment | Dependencies | Purpose |
+|---|---|---|---|
+| `src/tests/unit/` | default (jsdom) | none | Hooks, utils, schemas, store |
+| `src/tests/components/` | `@jest-environment jsdom` (pragma) | mocked | React components in isolation |
+| `src/tests/feature/` | `@jest-environment jsdom` (pragma) | Prisma or mocked fetch | DB integration + full-page render |
+
+### Rules
+- All tests are TypeScript (`.test.ts` or `.test.tsx`).
+- No `console.log` or `debugger` in tests or production code.
+- Every new feature and every bug fix must include tests. Features without tests are incomplete.
+- Coverage targets: **50%+ statements overall; 100% on new/changed code**.
+
+### DB integration tests
+```ts
+const describeIfDatabase = process.env.DATABASE_URL ? describe : describe.skip;
+describeIfDatabase("Bookmarks API", () => { ... });
+```
+
+### Component tests with React Query
+Any test that renders a component using `useQuery` or `useMutation` must be wrapped in a `QueryClientProvider`:
+```ts
+function createTestQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: 0 },
+      mutations: { retry: false },
+    },
+  });
+}
+
+function renderWithQueryClient(ui: React.ReactElement) {
+  return render(
+    <QueryClientProvider client={createTestQueryClient()}>{ui}</QueryClientProvider>
+  );
+}
+```
+
+### Async assertions
+Use `screen.findBy*()` (not `getBy*()`) when the element appears asynchronously (e.g., after a React Query fetch resolves):
+```ts
+// Correct — waits for async data
+const tag = await screen.findByText("React", {}, { timeout: 5000 });
+
+// Wrong — will fail if data hasn't loaded yet
+const tag = screen.getByText("React");
+```
+
+### Mocking the Zustand store in tests
+The store is mocked at the module level; provide a `dynamicStore` object with the **lean** interface (only the fields that currently exist in `useStore`):
+```ts
+jest.mock("@/lib/store", () => ({ useStore: jest.fn() }));
+const useStoreMock = useStore as jest.MockedFunction<typeof useStore>;
+useStoreMock.mockImplementation(() => dynamicStore);
+```
+Pre-populate `user` and `selectedWorkspaceId` in test store state so React Query hooks are enabled (they gate on `!!user && !!selectedWorkspaceId`).
+
+### Additional Jest best practices
+- Use `jest.useFakeTimers()` + `act()` for debounce/throttle tests; restore with `jest.useRealTimers()` in `afterEach`.
+- Mock `useRouter()` from `next/navigation` in all component tests.
+- Prefer `screen.getByRole()` / `screen.getByText()` over container refs.
+
+---
+
+## Component Development
+
+### Design Direction
+The app is named **Pearl**. The aesthetic is clean, modern, and minimal — generous whitespace, monochromatic palette with sharp accent pops, distinctive typography (Geist display/mono), subtle depth through shadows and borders. It should feel considered and calm, not cluttered.
+
+Before writing any component:
+1. **Understand the purpose** — what does this solve? for whom?
+2. **Commit to the aesthetic** — restraint, precision, deliberate spacing.
+3. **Consider motion** — hover states, transitions, micro-interactions; CSS-only where possible.
+4. **Every component should feel designed**, not generated.
+
+### Practical rules
+- Use `cn()` from `src/lib/utils.ts` for all conditional class merging.
+- Use CSS variables (Tailwind theme tokens: `bg-background`, `text-foreground`, `border-border`, etc.) — never hard-coded colours.
+- Support both light and dark themes; test both.
+- Toasts use `sonner`. Archive/restore confirmations use `ConfirmModal`. Do not use `window.confirm` except in folder delete (which already does so).
+- shadcn/ui components live in `src/components/ui/`. Add new ones via the shadcn CLI. Do not hand-roll primitives that shadcn already provides.
+
+### What to avoid
+- Generic AI-generated aesthetics.
+- Overused fonts (Inter, Roboto, Arial, system-ui). The project uses Geist.
+- Clichéd color schemes (purple gradients on white).
+- Predictable, cookie-cutter layouts.
+- Render-phase side effects — never call `setState` / `setUser` / `router.push` directly in the render body of a hook or component. Use `useEffect`.
+
+---
+
+## Code Style
+
+- TypeScript strict mode throughout. No `any` unless absolutely necessary with a comment explaining why.
+- `@/` path alias maps to `src/`. Use it for all internal imports.
+- No `console.log` in production code.
+- Centralise validation in `src/lib/schemas.ts` and API helpers in `src/lib/api.ts`.
+- Follow existing naming conventions: `useX` for hooks, `XProvider` for context providers, `XList`/`XCard`/`XForm` for components.
+- `src/lib/hooks.ts` has been deleted — do not recreate it. Feature hooks live in their feature folder.

@@ -1,11 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import {
   Search,
   Plus,
-  Tag,
   Archive,
   Loader2,
   Bookmark,
@@ -20,37 +18,39 @@ import {
 import { toast, Toaster } from "sonner";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useStore } from "@/lib/store";
-import { Bookmark as BookmarkType } from "@/lib/types";
+import { useAuth } from "@/features/auth";
 import { FolderTree } from "@/features/folders";
 import { BookmarkCard, BookmarkForm } from "@/features/bookmarks";
+import { TagList } from "@/features/tags";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { WorkspaceSwitcher } from "@/features/workspaces";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { useBookmarks } from "@/features/bookmarks/hooks";
 import { useFolders } from "@/features/folders/hooks";
-import { useTags } from "@/features/tags/hooks";
+import type {
+  Bookmark as BookmarkType,
+  BookmarkFormData,
+  Folder,
+} from "@/lib/types";
 
 export default function Home() {
-  const router = useRouter();
-  const { 
-    selectedFolderId, 
+  const {
+    selectedFolderId,
     setSelectedFolderId,
-    selectedTagId, 
-    setSelectedTagId,
+    selectedWorkspaceId,
     searchQuery,
     setSearchQuery,
     showArchived,
     setShowArchived,
   } = useStore();
 
+  const { isLoading: authLoading, logout } = useAuth();
+
   const {
     bookmarks,
-    isLoading,
-    initialLoad,
-    fetchBookmarks,
+    isLoading: bookmarksLoading,
     createBookmark,
     updateBookmark,
     archiveBookmark,
@@ -59,22 +59,8 @@ export default function Home() {
     toggleTag,
   } = useBookmarks();
 
-  const {
-    folders,
-    fetchFolders,
-    createFolder,
-    updateFolder,
-    deleteFolder,
-  } = useFolders();
+  const { folders, createFolder, updateFolder, deleteFolder } = useFolders();
 
-  const {
-    tags,
-    fetchTags,
-    createTag,
-    deleteTag,
-  } = useTags();
-
-  const [initialAuth, setInitialAuth] = useState(true);
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     type: "archive" | "restore";
@@ -83,132 +69,90 @@ export default function Home() {
   }>({ isOpen: false, type: "archive", bookmarkId: "", bookmarkTitle: "" });
 
   const [showForm, setShowForm] = useState(false);
-  const [editingBookmark, setEditingBookmark] = useState<BookmarkType | null>(null);
-  const [newTagName, setNewTagName] = useState("");
-  const [isCreatingTag, setIsCreatingTag] = useState(false);
+  const [editingBookmark, setEditingBookmark] = useState<BookmarkType | null>(
+    null,
+  );
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const res = await fetch("/api/auth/me");
-        if (!res.ok) {
-          router.push("/login");
-          return;
-        }
-        const data = await res.json();
-        if (!data.data) {
-          router.push("/login");
-          return;
-        }
-        setInitialAuth(false);
-      } catch {
-        router.push("/login");
-      }
-    };
-    checkAuth();
-  }, [router]);
-
-  useEffect(() => {
-    fetchFolders();
-    fetchTags();
-  }, [fetchFolders, fetchTags]);
-
-  const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      router.push("/login");
-      router.refresh();
-    } catch (error) {
-      console.error("Logout error:", error);
-    }
+  // ── Folder handlers ──────────────────────────────────────────────────────
+  const handleCreateFolder = (name: string, parentId?: string) => {
+    createFolder.mutate(
+      { name, parentId },
+      {
+        onSuccess: () =>
+          toast.success("Folder created", {
+            description: `"${name}" has been added.`,
+            icon: <FolderPlus className="w-4 h-4" />,
+          }),
+        onError: () => toast.error("Failed to create folder"),
+      },
+    );
   };
 
-  const handleCreateFolder = async (name: string, parentId?: string) => {
-    const res = await createFolder(name, parentId);
-    if (res?.ok) {
-      toast.success("Folder created", {
-        description: `"${name}" has been added.`,
-        icon: <FolderPlus className="w-4 h-4" />,
-      });
-    }
+  const handleUpdateFolder = (id: string, name: string) => {
+    updateFolder.mutate(
+      { id, name },
+      {
+        onSuccess: () =>
+          toast.success("Folder renamed", {
+            description: `"${name}" has been updated.`,
+            icon: <Pencil className="w-4 h-4" />,
+          }),
+        onError: () => toast.error("Failed to rename folder"),
+      },
+    );
   };
 
-  const handleUpdateFolder = async (id: string, name: string) => {
-    const res = await updateFolder(id, name);
-    if (res?.ok) {
-      toast.success("Folder renamed", {
-        description: `"${name}" has been updated.`,
-        icon: <Pencil className="w-4 h-4" />,
-      });
-    }
+  const handleDeleteFolder = (id: string) => {
+    const folder = folders.find((f: Folder) => f.id === id);
+    if (!confirm("Delete this folder? Bookmarks will be moved to root."))
+      return;
+    deleteFolder.mutate(id, {
+      onSuccess: () =>
+        toast.error("Folder deleted", {
+          description: `"${folder?.name}" has been removed.`,
+          icon: <Trash2 className="w-4 h-4" />,
+        }),
+      onError: () => toast.error("Failed to delete folder"),
+    });
   };
 
-  const handleDeleteFolder = async (id: string) => {
-    const folder = folders.find((f) => f.id === id);
-    if (!confirm("Delete this folder? Bookmarks will be moved to root.")) return;
-    const res = await deleteFolder(id);
-    if (res?.ok) {
-      toast.error("Folder deleted", {
-        description: `"${folder?.name}" has been removed.`,
-        icon: <Trash2 className="w-4 h-4" />,
-      });
-    }
-  };
-
-  const handleCreateTag = async () => {
-    if (!newTagName.trim()) return;
-    const tagName = newTagName.trim();
-    const res = await createTag(tagName);
-    if (res?.ok) {
-      toast.success("Tag created", {
-        description: `"${tagName}" has been added.`,
-        icon: <Tag className="w-4 h-4" />,
-      });
-      setNewTagName("");
-      setIsCreatingTag(false);
-    }
-  };
-
-  const handleDeleteTag = async (id: string) => {
-    const tag = tags.find((t) => t.id === id);
-    if (!confirm("Delete this tag?")) return;
-    const res = await deleteTag(id);
-    if (res?.ok) {
-      toast.error("Tag deleted", {
-        description: `"${tag?.name}" has been removed.`,
-        icon: <Trash2 className="w-4 h-4" />,
-      });
-    }
-  };
-
-  const handleSubmitBookmark = async (data: {
-    title: string;
-    description?: string;
-    folderId?: string | null;
-    urls: { url: string; isPrimary: boolean; label?: string }[];
-    tags: string[];
-  }) => {
+  // ── Bookmark handlers ─────────────────────────────────────────────────────
+  const handleSubmitBookmark = (data: BookmarkFormData) => {
     const isEditing = !!editingBookmark;
-    let res;
     if (isEditing) {
-      res = await updateBookmark(editingBookmark.id, data);
+      updateBookmark.mutate(
+        { id: editingBookmark.id, data },
+        {
+          onSuccess: () => {
+            toast.success("Bookmark updated", {
+              description: `"${data.title}" has been updated.`,
+              icon: <Sparkles className="w-4 h-4" />,
+            });
+            setShowForm(false);
+            setEditingBookmark(null);
+          },
+          onError: () => toast.error("Failed to update bookmark"),
+        },
+      );
     } else {
-      res = await createBookmark(data);
-    }
-    if (res?.ok) {
-      toast.success(isEditing ? "Bookmark updated" : "Bookmark created", {
-        description: isEditing
-          ? `"${data.title}" has been updated.`
-          : `"${data.title}" has been added.`,
-        icon: <Sparkles className="w-4 h-4" />,
-      });
-      setShowForm(false);
-      setEditingBookmark(null);
+      createBookmark.mutate(
+        { ...data, workspaceId: selectedWorkspaceId! },
+        {
+          onSuccess: () => {
+            toast.success("Bookmark created", {
+              description: `"${data.title}" has been added.`,
+              icon: <Sparkles className="w-4 h-4" />,
+            });
+            setShowForm(false);
+          },
+          onError: () => toast.error("Failed to create bookmark"),
+        },
+      );
     }
   };
 
-  const handleDeleteBookmark = async (id: string) => {
-    const bookmark = bookmarks.find((b) => b.id === id);
+  const handleDeleteBookmark = (id: string) => {
+    const bookmark = bookmarks.find((b: BookmarkType) => b.id === id);
     setConfirmModal({
       isOpen: true,
       type: "archive",
@@ -217,8 +161,8 @@ export default function Home() {
     });
   };
 
-  const handleRestoreBookmark = async (id: string) => {
-    const bookmark = bookmarks.find((b) => b.id === id);
+  const handleRestoreBookmark = (id: string) => {
+    const bookmark = bookmarks.find((b: BookmarkType) => b.id === id);
     setConfirmModal({
       isOpen: true,
       type: "restore",
@@ -227,37 +171,42 @@ export default function Home() {
     });
   };
 
-  const handleConfirmModal = async () => {
-    const { type, bookmarkId } = confirmModal;
-    let res;
+  const handleConfirmModal = () => {
+    const { type, bookmarkId, bookmarkTitle } = confirmModal;
     if (type === "archive") {
-      res = await archiveBookmark(bookmarkId);
-      if (res?.ok) {
-        toast.error("Bookmark archived", {
-          description: `"${confirmModal.bookmarkTitle}" has been archived.`,
-          icon: <Archive className="w-4 h-4" />,
-        });
-      }
+      archiveBookmark.mutate(bookmarkId, {
+        onSuccess: () =>
+          toast.error("Bookmark archived", {
+            description: `"${bookmarkTitle}" has been archived.`,
+            icon: <Archive className="w-4 h-4" />,
+          }),
+      });
     } else {
-      res = await restoreBookmark(bookmarkId);
-      if (res?.ok) {
-        toast.success("Bookmark restored", {
-          description: `"${confirmModal.bookmarkTitle}" has been restored.`,
-          icon: <ArchiveRestore className="w-4 h-4" />,
-        });
-      }
+      restoreBookmark.mutate(bookmarkId, {
+        onSuccess: () =>
+          toast.success("Bookmark restored", {
+            description: `"${bookmarkTitle}" has been restored.`,
+            icon: <ArchiveRestore className="w-4 h-4" />,
+          }),
+      });
     }
-    setConfirmModal({ isOpen: false, type: "archive", bookmarkId: "", bookmarkTitle: "" });
+    setConfirmModal({
+      isOpen: false,
+      type: "archive",
+      bookmarkId: "",
+      bookmarkTitle: "",
+    });
   };
 
-  if (initialLoad || initialAuth) return <LoadingScreen />;
+  if (authLoading) return <LoadingScreen />;
 
   return (
     <div className="flex h-screen bg-background">
+      {/* ── Sidebar ─────────────────────────────────────────────────────── */}
       <aside className="w-72 bg-card border-r border-border flex flex-col">
         <div className="p-6 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-primary to-ring rounded-xl flex items-center justify-center shadow-md">
+            <div className="w-10 h-10 bg-linear-to-br from-primary to-ring rounded-xl flex items-center justify-center shadow-md">
               <Bookmark className="w-5 h-5 text-primary-foreground" />
             </div>
             <div>
@@ -283,61 +232,18 @@ export default function Home() {
             />
           </div>
 
-          <div className="p-4 border-t border-border">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-medium text-sm text-foreground">Tags</h3>
-              <Button variant="ghost" size="icon-xs" onClick={() => setIsCreatingTag(true)}>
-                <Plus className="w-3.5 h-3.5" />
-              </Button>
-            </div>
-            {isCreatingTag && (
-              <div className="flex gap-2 mb-3">
-                <Input
-                  type="text"
-                  placeholder="Tag name"
-                  value={newTagName}
-                  onChange={(e) => setNewTagName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleCreateTag();
-                    if (e.key === "Escape") setIsCreatingTag(false);
-                  }}
-                  className="h-8 text-sm"
-                  autoFocus
-                />
-                <Button size="sm" onClick={handleCreateTag}>Add</Button>
-              </div>
-            )}
-            <div className="flex flex-wrap gap-2">
-              {tags.map((tag) => (
-                <div key={tag.id} className="group flex items-center gap-1">
-                  <Badge
-                    variant={selectedTagId === tag.id ? "default" : "secondary"}
-                    className="cursor-pointer"
-                    onClick={() => setSelectedTagId(selectedTagId === tag.id ? null : tag.id)}
-                  >
-                    {tag.name}
-                  </Badge>
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 hover:text-destructive"
-                    onClick={() => handleDeleteTag(tag.id)}
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
-                </div>
-              ))}
-              {tags.length === 0 && !isCreatingTag && (
-                <p className="text-xs text-muted-foreground">No tags yet</p>
-              )}
-            </div>
-          </div>
+          <TagList />
         </div>
 
         <div className="p-4 border-t border-border space-y-2">
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <Button variant="ghost" size="sm" onClick={handleLogout} className="flex-1 justify-start text-muted-foreground hover:text-destructive">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={logout}
+              className="flex-1 justify-start text-muted-foreground hover:text-destructive"
+            >
               <LogOut className="w-4 h-4 mr-2" />
               Logout
             </Button>
@@ -345,6 +251,7 @@ export default function Home() {
         </div>
       </aside>
 
+      {/* ── Main ────────────────────────────────────────────────────────── */}
       <main className="flex-1 flex flex-col overflow-hidden">
         <header className="bg-card border-b border-border p-4">
           <div className="flex items-center gap-4">
@@ -364,12 +271,18 @@ export default function Home() {
               size="sm"
               onClick={() => setShowArchived(!showArchived)}
             >
-              {showArchived ? <ArchiveX className="w-4 h-4 mr-2" /> : <Archive className="w-4 h-4 mr-2" />}
-              <span className="hidden sm:inline">{showArchived ? "Active" : "Archived"}</span>
+              {showArchived ? (
+                <ArchiveX className="w-4 h-4 mr-2" />
+              ) : (
+                <Archive className="w-4 h-4 mr-2" />
+              )}
+              <span className="hidden sm:inline">
+                {showArchived ? "Active" : "Archived"}
+              </span>
             </Button>
 
             <Button
-              className="bg-gradient-to-r from-primary to-ring hover:opacity-90"
+              className="bg-linear-to-r from-primary to-ring hover:opacity-90"
               size="sm"
               onClick={() => {
                 setEditingBookmark(null);
@@ -383,7 +296,7 @@ export default function Home() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-6">
-          {isLoading ? (
+          {bookmarksLoading ? (
             <div className="flex items-center justify-center h-full">
               <div className="flex flex-col items-center gap-3">
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -392,13 +305,17 @@ export default function Home() {
             </div>
           ) : bookmarks.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full">
-              <div className="w-24 h-24 bg-gradient-to-br from-accent to-secondary rounded-3xl flex items-center justify-center mb-6 shadow-lg">
-                <Tag className="w-12 h-12 text-muted-foreground" />
+              <div className="w-24 h-24 bg-linear-to-br from-accent to-secondary rounded-3xl flex items-center justify-center mb-6 shadow-lg">
+                <Archive className="w-12 h-12 text-muted-foreground" />
               </div>
-              <p className="text-xl font-semibold text-foreground mb-2">No bookmarks yet</p>
-              <p className="text-sm text-muted-foreground mb-6">Start building your collection</p>
+              <p className="text-xl font-semibold text-foreground mb-2">
+                No bookmarks yet
+              </p>
+              <p className="text-sm text-muted-foreground mb-6">
+                Start building your collection
+              </p>
               <Button
-                className="bg-gradient-to-r from-primary to-ring hover:opacity-90"
+                className="bg-linear-to-r from-primary to-ring hover:opacity-90"
                 onClick={() => {
                   setEditingBookmark(null);
                   setShowForm(true);
@@ -410,20 +327,27 @@ export default function Home() {
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {bookmarks.map((bookmark) => (
+              {bookmarks.map((bookmark: BookmarkType) => (
                 <BookmarkCard
                   key={bookmark.id}
                   bookmark={bookmark}
-                  folders={folders.map((f) => ({ id: f.id, name: f.name }))}
-                  tags={tags}
-                  onEdit={(bookmark) => {
-                    setEditingBookmark(bookmark);
+                  folders={folders.map((f: Folder) => ({
+                    id: f.id,
+                    name: f.name,
+                  }))}
+                  tags={[]}
+                  onEdit={(bm) => {
+                    setEditingBookmark(bm);
                     setShowForm(true);
                   }}
                   onDelete={handleDeleteBookmark}
                   onRestore={handleRestoreBookmark}
-                  onMoveFolder={moveToFolder}
-                  onToggleTag={toggleTag}
+                  onMoveFolder={(bookmarkId, folderId) =>
+                    moveToFolder.mutate({ bookmarkId, folderId })
+                  }
+                  onToggleTag={(bookmarkId, tagId) =>
+                    toggleTag.mutate({ bookmarkId, tagId })
+                  }
                 />
               ))}
             </div>
@@ -435,7 +359,7 @@ export default function Home() {
         <BookmarkForm
           bookmark={editingBookmark}
           folders={folders}
-          tags={tags}
+          tags={[]}
           onSubmit={handleSubmitBookmark}
           onClose={() => {
             setShowForm(false);
@@ -448,7 +372,11 @@ export default function Home() {
 
       <ConfirmModal
         open={confirmModal.isOpen}
-        title={confirmModal.type === "archive" ? "Archive bookmark?" : "Restore bookmark?"}
+        title={
+          confirmModal.type === "archive"
+            ? "Archive bookmark?"
+            : "Restore bookmark?"
+        }
         message={
           confirmModal.type === "archive"
             ? `Are you sure you want to archive "${confirmModal.bookmarkTitle}"? You can restore it later from the archived view.`
@@ -458,7 +386,14 @@ export default function Home() {
         variant={confirmModal.type === "archive" ? "danger" : "success"}
         icon={confirmModal.type === "archive" ? "archive" : "restore"}
         onConfirm={handleConfirmModal}
-        onCancel={() => setConfirmModal({ isOpen: false, type: "archive", bookmarkId: "", bookmarkTitle: "" })}
+        onCancel={() =>
+          setConfirmModal({
+            isOpen: false,
+            type: "archive",
+            bookmarkId: "",
+            bookmarkTitle: "",
+          })
+        }
       />
     </div>
   );

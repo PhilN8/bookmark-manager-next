@@ -1,15 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getAuthUser } from '@/lib/auth'
 import { sanitizeSearchQuery, createBookmarkSchema } from '@/lib/schemas'
 
 // GET /api/bookmarks - List bookmarks with filters
 export async function GET(request: NextRequest) {
+  const user = await getAuthUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const { searchParams } = new URL(request.url)
   const q = searchParams.get('q')
   const folderId = searchParams.get('folder')
   const tagId = searchParams.get('tag')
   const archived = searchParams.get('archived') === 'true'
-  const workspaceId = searchParams.get('workspaceId') || 'default'
+  const workspaceId = searchParams.get('workspaceId')
+
+  if (!workspaceId) {
+    return NextResponse.json({ error: 'Workspace ID is required' }, { status: 400 })
+  }
+
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: workspaceId },
+  })
+
+  if (!workspace || workspace.userId !== user.id) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   // Sanitize search query
   const sanitizedQ = q ? sanitizeSearchQuery(q) : undefined

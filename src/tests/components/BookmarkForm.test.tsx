@@ -3,8 +3,8 @@
 "use client";
 
 import { fireEvent, render, screen } from "@testing-library/react";
-import { BookmarkForm } from "@/features/bookmarks/BookmarkForm";
-import type { Folder, Tag } from "@/lib/store";
+import { BookmarkForm } from "@/features/bookmarks/components/BookmarkForm";
+import type { Folder, Tag } from "@/lib/types";
 
 describe("BookmarkForm", () => {
   const folders: Folder[] = [
@@ -103,13 +103,13 @@ describe("BookmarkForm", () => {
   it("keeps one primary URL after removal", async () => {
     const onSubmit = jest.fn();
 
-    const { container } = render(
+    render(
       <BookmarkForm
         folders={folders}
         tags={tags}
         onSubmit={onSubmit}
         onClose={() => undefined}
-      />,
+      />
     );
 
     fireEvent.click(screen.getByText(/Add URL/));

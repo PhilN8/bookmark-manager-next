@@ -92,14 +92,42 @@ By the end of MVP:
 
 ---
 
-## 📋 Next Steps
+## 📋 Completed
 
-1. Initialize Next.js + TypeScript + Tailwind
-2. Set up PostgreSQL + Prisma schema (ref: section 2)
-3. Implement Feature (CRUD + search)
-4. Build UI and test end-to-end
+- Next.js 16 App Router scaffold with TypeScript strict mode
+- PostgreSQL/SQLite Prisma schema (Users, Workspaces, Bookmarks, BookmarkUrls, Folders, Tags, Snapshots)
+- Full REST API: bookmarks, folders, tags, workspaces, auth
+- Custom JWT cookie auth (jose + bcryptjs); middleware guards all `/api/*` routes
+- React Query v5 for all server state; Zustand v5 for UI state only
+- Feature-scoped architecture: `features/{auth,bookmarks,folders,tags,workspaces}/`
+- Full UI: sidebar (workspace switcher, folder tree, tag list), bookmark grid, search, archive toggle
+- Soft-delete (archive/restore) for bookmarks
+- Hierarchical folders with parent-child nesting
+- Per-workspace tags with create/delete
+- Workspace CRUD with auto-selection
+- Jest 30 + Testing Library test suite (unit, component, feature/DB integration)
+- AGENTS.md documenting architecture, patterns and conventions
 
-**Ready?** I can generate:
-- Prisma schema file
-- API route templates
-- Component scaffolding
+---
+
+## 🚀 Next Steps
+
+1. **Migrate `useFolders` and `useTags` to typed API wrappers** — replace remaining inline `fetch` calls in those hooks with `folderApi` / `tagApi` from `src/lib/api.ts` to match the rest of the codebase.
+
+2. **Remove or repurpose `src/components/AuthProvider.tsx`** — it wires `better-auth`'s React client but the app uses custom JWT auth; it is dead code that adds confusion.
+
+3. **Adopt `react-hook-form` in `BookmarkForm`** — the library is installed but forms still use plain `useState`; migration would simplify validation, error display, and dirty-state tracking.
+
+4. **Full-text search via GIN index** — a PostgreSQL GIN index on `ts_vector(title, description, url)` is noted in the schema design but not yet created; would improve search performance at scale.
+
+5. **Hard delete for bookmarks** — only soft-archive is implemented; a "permanently delete" action from the archived view is the natural follow-on.
+
+6. **Extend rate limiting** — currently only `POST /api/auth/login` is rate-limited; apply the same guard to `/api/auth/register` and high-frequency write endpoints.
+
+7. **Pagination for the bookmark list** — all bookmarks in a workspace are fetched in a single query; add cursor-based or offset pagination before datasets grow large.
+
+8. **Unit tests for feature hooks** — `useBookmarks`, `useFolders`, `useTags`, `useWorkspaces` have no unit tests; cover them with `renderHook` + `QueryClientProvider` to reach the 100% coverage target on new code.
+
+9. **Nested folder picker in `BookmarkForm`** — the folder selector is currently a flat indented list; replace it with the real `FolderTree` component for consistency and usability with deep hierarchies.
+
+10. **URL sub-resource management (Snapshots groundwork)** — the schema has `Snapshot` and `bookmarks/[id]/urls` is already stubbed in the API; implementing per-URL add/remove in the UI unblocks the snapshot capture feature.

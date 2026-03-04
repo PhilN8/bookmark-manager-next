@@ -1,4 +1,4 @@
-import { Bookmark, BookmarkFormData, Folder, Tag, User, Workspace } from './types'
+import { Bookmark, BookmarkFormData, Folder, Tag, Workspace } from './types'
 
 const API_BASE = '/api'
 
