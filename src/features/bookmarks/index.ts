@@ -1,2 +1,2 @@
-export { BookmarkCard } from './BookmarkCard'
-export { BookmarkForm } from './BookmarkForm'
+export { BookmarkCard } from './components/BookmarkCard'
+export { BookmarkForm } from './components/BookmarkForm'

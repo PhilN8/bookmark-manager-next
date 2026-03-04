@@ -1,1 +1,1 @@
-export { FolderTree } from './FolderSidebar'
+export { FolderTree } from './components/FolderSidebar'
