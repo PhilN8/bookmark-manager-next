@@ -159,7 +159,7 @@ describe("Home CRUD interactions", () => {
   });
 
   it("creates a tag with trimmed name", async () => {
-    render(<Home />);
+    const { container } = render(<Home />);
 
     // Wait for LoadingScreen to disappear (indicates initialLoad is complete and auth check passed)
     await waitFor(
@@ -170,7 +170,11 @@ describe("Home CRUD interactions", () => {
       { timeout: 10000 },
     );
 
-    fireEvent.click(screen.getByLabelText("Add tag"));
+    // Find the Plus button in the Tags section by looking for the Tags heading then the button after it
+    const tagsHeading = screen.getByText("Tags");
+    const tagsSection = tagsHeading.closest("div")?.parentElement;
+    const addTagButton = tagsSection?.querySelector("button");
+    if (addTagButton) fireEvent.click(addTagButton);
     const input = screen.getByPlaceholderText("Tag name");
     fireEvent.change(input, { target: { value: "  New Tag  " } });
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
@@ -185,7 +189,7 @@ describe("Home CRUD interactions", () => {
   });
 
   it("deletes a tag after confirmation", async () => {
-    render(<Home />);
+    const { container } = render(<Home />);
 
     // Wait for LoadingScreen to disappear
     await waitFor(
@@ -196,7 +200,11 @@ describe("Home CRUD interactions", () => {
       { timeout: 10000 },
     );
 
-    fireEvent.click(screen.getByLabelText("Delete tag React"));
+    // Find the React tag badge, then click the delete button next to it
+    const reactTag = screen.getByText("React");
+    const tagGroup = reactTag.closest(".group");
+    const deleteButton = tagGroup?.querySelector("button");
+    if (deleteButton) fireEvent.click(deleteButton);
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
