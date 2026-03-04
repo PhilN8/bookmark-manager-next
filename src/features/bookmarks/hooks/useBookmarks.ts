@@ -1,7 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useStore } from "@/lib/store";
 import { bookmarkApi } from "@/lib/api";
-import type { BookmarkFormData } from "@/lib/types";
+import type { BookmarkFormData, BookmarkPage } from "@/lib/types";
 
 export function bookmarkKeys(
   workspaceId: string | null,
@@ -14,6 +14,8 @@ export function bookmarkKeys(
 ) {
   return ["bookmarks", workspaceId, filters] as const;
 }
+
+const PAGE_SIZE = 20;
 
 export function useBookmarks() {
   const queryClient = useQueryClient();
@@ -29,19 +31,24 @@ export function useBookmarks() {
 
   const queryKey = bookmarkKeys(selectedWorkspaceId, filters);
 
-  const query = useQuery({
+  const query = useInfiniteQuery<BookmarkPage, Error>({
     queryKey,
-    queryFn: () => {
-      const params = new URLSearchParams();
-      params.set("workspaceId", selectedWorkspaceId!);
-      if (filters.q) params.set("q", filters.q);
-      if (filters.folder) params.set("folder", filters.folder);
-      if (filters.tag) params.set("tag", filters.tag);
-      if (filters.archived) params.set("archived", "true");
-      return fetch(`/api/bookmarks?${params}`).then((r) => r.json());
+    queryFn: ({ pageParam }) => {
+      const params: Parameters<typeof bookmarkApi.getAll>[0] = {
+        workspaceId: selectedWorkspaceId!,
+        limit: PAGE_SIZE,
+        ...(pageParam ? { cursor: pageParam as string } : {}),
+        ...filters,
+      };
+      return bookmarkApi.getAll(params);
     },
+    initialPageParam: undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled: !!user && !!selectedWorkspaceId,
   });
+
+  // Flatten all pages into a single array for consumers
+  const bookmarks = query.data?.pages.flatMap((page) => page.items) ?? [];
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ["bookmarks", selectedWorkspaceId] });
@@ -68,6 +75,11 @@ export function useBookmarks() {
     onSuccess: invalidate,
   });
 
+  const deleteBookmark = useMutation({
+    mutationFn: (id: string) => bookmarkApi.hardDelete(id),
+    onSuccess: invalidate,
+  });
+
   const restoreBookmark = useMutation({
     mutationFn: (id: string) => bookmarkApi.update(id, { archived: false }),
     onSuccess: invalidate,
@@ -81,10 +93,10 @@ export function useBookmarks() {
 
   const toggleTag = useMutation({
     mutationFn: ({ bookmarkId, tagId }: { bookmarkId: string; tagId: string }) => {
-      const bookmark = query.data?.find((b: { id: string }) => b.id === bookmarkId);
+      const bookmark = bookmarks.find((b) => b.id === bookmarkId);
       if (!bookmark) throw new Error("Bookmark not found");
-      const hasTag = bookmark.tags.some((t: { tag: { id: string } }) => t.tag.id === tagId);
-      const currentTagIds: string[] = bookmark.tags.map((t: { tag: { id: string } }) => t.tag.id);
+      const hasTag = bookmark.tags.some((t) => t.tag.id === tagId);
+      const currentTagIds: string[] = bookmark.tags.map((t) => t.tag.id);
       const newTagIds = hasTag
         ? currentTagIds.filter((id: string) => id !== tagId)
         : [...currentTagIds, tagId];
@@ -94,12 +106,17 @@ export function useBookmarks() {
   });
 
   return {
-    bookmarks: query.data ?? [],
+    bookmarks,
     isLoading: query.isLoading,
     isPending: query.isPending,
+    fetchNextPage: query.fetchNextPage,
+    hasNextPage: query.hasNextPage,
+    isFetchingNextPage: query.isFetchingNextPage,
+    invalidate,
     createBookmark,
     updateBookmark,
     archiveBookmark,
+    deleteBookmark,
     restoreBookmark,
     moveToFolder,
     toggleTag,

@@ -1,4 +1,4 @@
-// Simple in-memory rate limiter for auth endpoints
+// Simple in-memory rate limiter
 // For production, consider using Redis-based rate limiting
 
 interface RateLimitStore {
@@ -28,6 +28,12 @@ export interface RateLimitConfig {
 const defaultConfig: RateLimitConfig = {
   windowMs: 15 * 60 * 1000, // 15 minutes
   maxRequests: 5, // 5 attempts per window
+}
+
+// Looser config for authenticated write endpoints (bookmark/folder/tag mutations)
+export const writeLimitConfig: RateLimitConfig = {
+  windowMs: 60 * 1000, // 1 minute
+  maxRequests: 60, // 60 writes per minute
 };
 
 export function checkRateLimit(

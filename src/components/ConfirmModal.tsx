@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Archive, ArchiveRestore } from "lucide-react";
+import { AlertTriangle, Archive, ArchiveRestore, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,7 @@ interface ConfirmModalProps {
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: "default" | "danger" | "success";
-  icon?: "archive" | "restore" | "warning";
+  icon?: "archive" | "restore" | "warning" | "delete";
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -38,6 +38,7 @@ export function ConfirmModal({
     archive: <Archive className="w-5 h-5" />,
     restore: <ArchiveRestore className="w-5 h-5" />,
     warning: <AlertTriangle className="w-5 h-5" />,
+    delete: <Trash2 className="w-5 h-5" />,
   };
 
   const variantStyles = {

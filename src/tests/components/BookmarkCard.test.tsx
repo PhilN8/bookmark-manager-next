@@ -2,9 +2,19 @@
 
 "use client";
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { BookmarkCard } from "@/features/bookmarks/components/BookmarkCard";
 import type { Bookmark } from "@/lib/types";
+
+// Mock bookmarkApi so URL add/remove don't need a real server
+jest.mock("@/lib/api", () => ({
+  bookmarkApi: {
+    addUrl: jest.fn(),
+    removeUrl: jest.fn(),
+  },
+}));
+
+import { bookmarkApi } from "@/lib/api";
 
 describe("BookmarkCard", () => {
   const bookmark: Bookmark = {
@@ -141,6 +151,7 @@ describe("BookmarkCard", () => {
         onEdit={jest.fn()}
         onDelete={jest.fn()}
         onRestore={onRestore}
+        onHardDelete={jest.fn()}
         onMoveFolder={jest.fn()}
         onToggleTag={jest.fn()}
       />,
@@ -157,5 +168,179 @@ describe("BookmarkCard", () => {
     }
     expect(screen.getByText("+1 more")).toBeInTheDocument();
     expect(screen.getAllByText("Work").length).toBeGreaterThan(0);
+  });
+
+  it("fires onHardDelete when permanent delete button is clicked in archived state", () => {
+    const onHardDelete = jest.fn();
+
+    const { container } = render(
+      <BookmarkCard
+        bookmark={{ ...bookmark, archived: true }}
+        folders={folders}
+        tags={tags}
+        onEdit={jest.fn()}
+        onDelete={jest.fn()}
+        onRestore={jest.fn()}
+        onHardDelete={onHardDelete}
+        onMoveFolder={jest.fn()}
+        onToggleTag={jest.fn()}
+      />,
+    );
+
+    // The permanently-delete button has title "Permanently delete"
+    const deleteButton = container.querySelector('[title="Permanently delete"]');
+    expect(deleteButton).not.toBeNull();
+    if (deleteButton) {
+      fireEvent.click(deleteButton);
+      expect(onHardDelete).toHaveBeenCalledWith("bookmark-1");
+    }
+  });
+
+  describe("URL management", () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it("shows URL manager toggle and reveals remove buttons", async () => {
+      render(
+        <BookmarkCard
+          bookmark={bookmark}
+          folders={folders}
+          tags={tags}
+          onEdit={jest.fn()}
+          onDelete={jest.fn()}
+          onMoveFolder={jest.fn()}
+          onToggleTag={jest.fn()}
+        />,
+      );
+
+      // Toggle is initially visible
+      const toggle = screen.getByText("Manage URLs");
+      expect(toggle).toBeInTheDocument();
+
+      // Click to open URL manager
+      await act(async () => {
+        fireEvent.click(toggle);
+      });
+
+      // Remove buttons appear — one per URL
+      const removeButtons = screen.getAllByRole("button", { name: /Remove URL/i });
+      expect(removeButtons).toHaveLength(2);
+      // First remove button is enabled (2 URLs, can remove one)
+      expect(removeButtons[0]).not.toBeDisabled();
+    });
+
+    it("calls bookmarkApi.removeUrl and onUrlsChanged on removal", async () => {
+      const onUrlsChanged = jest.fn();
+      (bookmarkApi.removeUrl as jest.Mock).mockResolvedValue(undefined);
+
+      render(
+        <BookmarkCard
+          bookmark={bookmark}
+          folders={folders}
+          tags={tags}
+          onEdit={jest.fn()}
+          onDelete={jest.fn()}
+          onMoveFolder={jest.fn()}
+          onToggleTag={jest.fn()}
+          onUrlsChanged={onUrlsChanged}
+        />,
+      );
+
+      await act(async () => {
+        fireEvent.click(screen.getByText("Manage URLs"));
+      });
+
+      const removeButtons = screen.getAllByRole("button", { name: /Remove URL/i });
+      await act(async () => {
+        fireEvent.click(removeButtons[0]);
+      });
+
+      await waitFor(() => {
+        expect(bookmarkApi.removeUrl).toHaveBeenCalledWith("bookmark-1", "url-1");
+        expect(onUrlsChanged).toHaveBeenCalledWith("bookmark-1");
+      });
+    });
+
+    it("shows inline add-URL form and calls bookmarkApi.addUrl on submit", async () => {
+      const onUrlsChanged = jest.fn();
+      (bookmarkApi.addUrl as jest.Mock).mockResolvedValue({
+        id: "url-3",
+        url: "https://new.com",
+        isPrimary: false,
+        label: null,
+      });
+
+      render(
+        <BookmarkCard
+          bookmark={bookmark}
+          folders={folders}
+          tags={tags}
+          onEdit={jest.fn()}
+          onDelete={jest.fn()}
+          onMoveFolder={jest.fn()}
+          onToggleTag={jest.fn()}
+          onUrlsChanged={onUrlsChanged}
+        />,
+      );
+
+      // Open URL manager
+      await act(async () => {
+        fireEvent.click(screen.getByText("Manage URLs"));
+      });
+
+      // Open add form
+      await act(async () => {
+        fireEvent.click(screen.getByText("Add URL"));
+      });
+
+      const urlInput = screen.getByPlaceholderText("https://example.com");
+      await act(async () => {
+        fireEvent.change(urlInput, { target: { value: "https://new.com" } });
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByText("Add"));
+      });
+
+      await waitFor(() => {
+        expect(bookmarkApi.addUrl).toHaveBeenCalledWith("bookmark-1", {
+          url: "https://new.com",
+          label: undefined,
+          isPrimary: false,
+        });
+        expect(onUrlsChanged).toHaveBeenCalledWith("bookmark-1");
+      });
+    });
+
+    it("shows validation error for invalid URL", async () => {
+      render(
+        <BookmarkCard
+          bookmark={bookmark}
+          folders={folders}
+          tags={tags}
+          onEdit={jest.fn()}
+          onDelete={jest.fn()}
+          onMoveFolder={jest.fn()}
+          onToggleTag={jest.fn()}
+        />,
+      );
+
+      await act(async () => {
+        fireEvent.click(screen.getByText("Manage URLs"));
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByText("Add URL"));
+      });
+
+      const urlInput = screen.getByPlaceholderText("https://example.com");
+      await act(async () => {
+        fireEvent.change(urlInput, { target: { value: "not-a-url" } });
+        fireEvent.click(screen.getByText("Add"));
+      });
+
+      expect(screen.getByText("Must be a valid URL")).toBeInTheDocument();
+      expect(bookmarkApi.addUrl).not.toHaveBeenCalled();
+    });
   });
 });

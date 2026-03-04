@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/auth'
+import { checkRateLimit, getRateLimitIdentifier, writeLimitConfig } from '@/lib/rateLimit'
 import { createTagSchema } from '@/lib/schemas'
+
+function applyWriteRateLimit(request: NextRequest) {
+  const identifier = `write:${getRateLimitIdentifier(request)}`
+  return checkRateLimit(identifier, writeLimitConfig)
+}
 
 // GET /api/tags - List all tags
 export async function GET(request: NextRequest) {
@@ -47,6 +53,17 @@ export async function POST(request: NextRequest) {
   const user = await getAuthUser()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const rateLimit = applyWriteRateLimit(request)
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please slow down.' },
+      {
+        status: 429,
+        headers: { 'Retry-After': Math.ceil((rateLimit.resetTime - Date.now()) / 1000).toString() },
+      }
+    )
   }
 
   try {
@@ -100,6 +117,22 @@ export async function POST(request: NextRequest) {
 // DELETE /api/tags - Delete a tag
 // Note: Prefer using DELETE /api/tags/:id for RESTful operations
 export async function DELETE(request: NextRequest) {
+  const user = await getAuthUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const rateLimit = applyWriteRateLimit(request)
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please slow down.' },
+      {
+        status: 429,
+        headers: { 'Retry-After': Math.ceil((rateLimit.resetTime - Date.now()) / 1000).toString() },
+      }
+    )
+  }
+
   const { searchParams } = new URL(request.url)
   const id = searchParams.get('id')
 

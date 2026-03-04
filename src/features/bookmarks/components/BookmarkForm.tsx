@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Plus, Trash2 } from "lucide-react";
-import { Bookmark, Folder, Tag } from "@/lib/types";
+import { Bookmark, BookmarkFormData, Folder, Tag } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,114 +17,134 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { FolderPickerTree } from "@/features/folders/components/FolderPickerTree";
+import { useFolders } from "@/features/folders/hooks";
+
+// Client-side form schema — mirrors BookmarkFormData with isPrimary required.
+const formSchema = z.object({
+  title: z.string().min(1, "Title is required").max(500),
+  description: z.string().max(2000).optional(),
+  folderId: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  urls: z
+    .array(
+      z.object({
+        url: z.string().url("Must be a valid URL"),
+        isPrimary: z.boolean(),
+        label: z.string().max(100).optional(),
+      }),
+    )
+    .min(1, "At least one URL is required"),
+});
+
+type FormValues = z.infer<typeof formSchema>;
 
 interface BookmarkFormProps {
   bookmark?: Bookmark | null;
-  folders: Folder[];
+  /** Optional folders override — used in tests to avoid calling useFolders() */
+  folders?: Folder[];
   tags: Tag[];
-  onSubmit: (data: {
-    title: string;
-    description?: string;
-    folderId?: string;
-    tags: string[];
-    urls: { url: string; isPrimary: boolean; label?: string }[];
-  }) => void;
+  onSubmit: (data: BookmarkFormData) => void;
   onClose: () => void;
 }
 
 export function BookmarkForm({
   bookmark,
-  folders,
+  folders: foldersProp,
   tags,
   onSubmit,
   onClose,
 }: BookmarkFormProps) {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [folderId, setFolderId] = useState("");
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [urls, setUrls] = useState<
-    { url: string; isPrimary: boolean; label: string }[]
-  >([]);
+  // Use injected folders (tests) or fetch from hook (production)
+  const { folders: fetchedFolders } = useFolders();
+  const folders = foldersProp ?? fetchedFolders;
+  const {
+    register,
+    control,
+    handleSubmit,
+    reset,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      folderId: "",
+      tags: [],
+      urls: [{ url: "", isPrimary: true, label: "" }],
+    },
+  });
 
+  const { fields, append, remove } = useFieldArray({ control, name: "urls" });
+  const selectedTags = watch("tags") ?? [];
+  const urlValues = watch("urls");
+
+  // Populate form when editing an existing bookmark
   useEffect(() => {
     if (bookmark) {
-      setTitle(bookmark.title);
-      setDescription(bookmark.description || "");
-      setFolderId(bookmark.folderId || "");
-      setSelectedTags(bookmark.tags.map(({ tag }) => tag.id));
-      setUrls(
-        bookmark.urls.map((u) => ({
+      reset({
+        title: bookmark.title,
+        description: bookmark.description ?? "",
+        folderId: bookmark.folderId ?? "",
+        tags: bookmark.tags.map(({ tag }) => tag.id),
+        urls: bookmark.urls.map((u) => ({
           url: u.url,
           isPrimary: u.isPrimary,
-          label: u.label || "",
+          label: u.label ?? "",
         })),
-      );
+      });
     } else {
-      setUrls([{ url: "", isPrimary: true, label: "" }]);
+      reset({
+        title: "",
+        description: "",
+        folderId: "",
+        tags: [],
+        urls: [{ url: "", isPrimary: true, label: "" }],
+      });
     }
-  }, [bookmark]);
+  }, [bookmark, reset]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim() || urls.length === 0 || !urls[0].url.trim()) return;
-
-    onSubmit({
-      title: title.trim(),
-      description: description.trim() || undefined,
-      folderId: folderId || undefined,
-      tags: selectedTags,
-      urls: urls
-        .filter((u) => u.url.trim())
-        .map((u, i) => ({
-          url: u.url.trim(),
-          isPrimary: i === 0 || u.isPrimary,
-          label: u.label.trim() || undefined,
-        })),
+  const handlePrimaryChange = (index: number, checked: boolean) => {
+    if (!checked) return; // must always have one primary; ignore unchecks
+    urlValues.forEach((_, i) => {
+      setValue(`urls.${i}.isPrimary`, i === index);
     });
   };
 
-  const addUrl = () => {
-    setUrls([...urls, { url: "", isPrimary: false, label: "" }]);
-  };
-
-  const removeUrl = (index: number) => {
-    if (urls.length === 1) return;
-    const newUrls = urls.filter((_, i) => i !== index);
-    if (!newUrls.some((u) => u.isPrimary)) {
-      newUrls[0].isPrimary = true;
+  const handleRemoveUrl = (index: number) => {
+    if (fields.length === 1) return;
+    const wasPrimary = urlValues[index]?.isPrimary;
+    remove(index);
+    if (wasPrimary) {
+      // Promote the first remaining url to primary
+      setTimeout(() => setValue("urls.0.isPrimary", true), 0);
     }
-    setUrls(newUrls);
-  };
-
-  const updateUrl = (index: number, field: string, value: string | boolean) => {
-    const newUrls = [...urls];
-    newUrls[index] = { ...newUrls[index], [field]: value };
-    if (field === "isPrimary" && value) {
-      newUrls.forEach((u, i) => {
-        if (i !== index) u.isPrimary = false;
-      });
-    }
-    setUrls(newUrls);
   };
 
   const toggleTag = (tagId: string) => {
-    setSelectedTags((prev) =>
-      prev.includes(tagId) ? prev.filter((t) => t !== tagId) : [...prev, tagId],
-    );
+    const next = selectedTags.includes(tagId)
+      ? selectedTags.filter((t) => t !== tagId)
+      : [...selectedTags, tagId];
+    setValue("tags", next, { shouldDirty: true });
   };
 
-  const flattenFolders = (
-    folders: Folder[],
-    depth = 0,
-  ): { id: string; name: string; depth: number }[] => {
-    return folders.flatMap((f) => [
-      { id: f.id, name: f.name, depth },
-      ...flattenFolders(f.children || [], depth + 1),
-    ]);
+  const onValidSubmit = (values: FormValues) => {
+    onSubmit({
+      title: values.title.trim(),
+      description: values.description?.trim() || undefined,
+      folderId: values.folderId || undefined,
+      tags: values.tags ?? [],
+      urls: values.urls
+        .filter((u) => u.url.trim())
+        .map((u, i) => ({
+          url: u.url.trim(),
+          isPrimary: i === 0 ? true : u.isPrimary,
+          label: u.label?.trim() || undefined,
+        })),
+    });
   };
-
-  const flatFolders = flattenFolders(folders);
 
   return (
     <Dialog open onOpenChange={(isOpen) => !isOpen && onClose()}>
@@ -131,96 +154,120 @@ export function BookmarkForm({
             {bookmark ? "Edit Bookmark" : "New Bookmark"}
           </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-6">
+
+        <form onSubmit={handleSubmit(onValidSubmit)} className="space-y-6">
+          {/* Title */}
           <div className="space-y-2">
             <Label htmlFor="title">Title *</Label>
             <Input
               id="title"
               type="text"
               placeholder="Enter bookmark title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
+              {...register("title")}
             />
+            {errors.title && (
+              <p className="text-xs text-destructive">{errors.title.message}</p>
+            )}
           </div>
 
+          {/* Description */}
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
             <Input
               id="description"
               type="text"
               placeholder="Add a description..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              {...register("description")}
+            />
+            {errors.description && (
+              <p className="text-xs text-destructive">
+                {errors.description.message}
+              </p>
+            )}
+          </div>
+
+          {/* Folder */}
+          <div className="space-y-2">
+            <Label>Folder</Label>
+            <Controller
+              control={control}
+              name="folderId"
+              render={({ field }) => (
+                <FolderPickerTree
+                  folders={folders}
+                  value={field.value || null}
+                  onChange={(id) => field.onChange(id ?? "")}
+                />
+              )}
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="folder">Folder</Label>
-            <select
-              id="folder"
-              value={folderId}
-              onChange={(e) => setFolderId(e.target.value)}
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <option value="">No folder</option>
-              {flatFolders.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {"—".repeat(f.depth)} {f.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
+          {/* URLs */}
           <div className="space-y-3">
             <Label>URLs *</Label>
-            {urls.map((url, index) => (
-              <div key={index} className="flex items-center gap-3">
-                <Checkbox
-                  checked={url.isPrimary}
-                  onCheckedChange={(checked) =>
-                    updateUrl(index, "isPrimary", checked as boolean)
-                  }
-                  title="Primary URL"
+            {fields.map((field, index) => (
+              <div key={field.id} className="flex items-start gap-3">
+                <Controller
+                  control={control}
+                  name={`urls.${index}.isPrimary`}
+                  render={({ field: f }) => (
+                    <Checkbox
+                      checked={f.value}
+                      onCheckedChange={(checked) =>
+                        handlePrimaryChange(index, checked as boolean)
+                      }
+                      title="Primary URL"
+                      className="mt-2"
+                    />
+                  )}
                 />
-                <Input
-                  type="url"
-                  placeholder="https://example.com"
-                  value={url.url}
-                  onChange={(e) => updateUrl(index, "url", e.target.value)}
-                  className="flex-1"
-                  required={index === 0}
-                />
+                <div className="flex-1 space-y-1">
+                  <Input
+                    type="url"
+                    placeholder="https://example.com"
+                    {...register(`urls.${index}.url`)}
+                  />
+                  {errors.urls?.[index]?.url && (
+                    <p className="text-xs text-destructive">
+                      {errors.urls[index]!.url!.message}
+                    </p>
+                  )}
+                </div>
                 <Input
                   type="text"
                   placeholder="Label"
-                  value={url.label}
-                  onChange={(e) => updateUrl(index, "label", e.target.value)}
+                  {...register(`urls.${index}.label`)}
                   className="w-28"
                 />
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  onClick={() => removeUrl(index)}
-                  disabled={urls.length === 1}
-                  className="text-muted-foreground hover:text-destructive"
+                  onClick={() => handleRemoveUrl(index)}
+                  disabled={fields.length === 1}
+                  className="text-muted-foreground hover:text-destructive mt-0.5"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
             ))}
+            {errors.urls && !Array.isArray(errors.urls) && (
+              <p className="text-xs text-destructive">
+                {(errors.urls as { message?: string }).message}
+              </p>
+            )}
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              onClick={addUrl}
+              onClick={() => append({ url: "", isPrimary: false, label: "" })}
               className="text-primary hover:text-primary/80"
             >
               <Plus className="h-4 w-4 mr-1" /> Add URL
             </Button>
           </div>
 
+          {/* Tags */}
           <div className="space-y-2">
             <Label>Tags</Label>
             <div className="flex flex-wrap gap-2">
@@ -243,9 +290,7 @@ export function BookmarkForm({
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit">
-              {bookmark ? "Update" : "Create"}
-            </Button>
+            <Button type="submit">{bookmark ? "Update" : "Create"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

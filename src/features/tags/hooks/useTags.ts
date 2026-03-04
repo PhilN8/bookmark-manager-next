@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useStore } from "@/lib/store";
+import { tagApi } from "@/lib/api";
 
 export function useTags() {
   const queryClient = useQueryClient();
@@ -7,8 +8,7 @@ export function useTags() {
 
   const query = useQuery({
     queryKey: ["tags", selectedWorkspaceId],
-    queryFn: () =>
-      fetch(`/api/tags?workspaceId=${selectedWorkspaceId}`).then((r) => r.json()),
+    queryFn: () => tagApi.getAll(selectedWorkspaceId!),
     enabled: !!user && !!selectedWorkspaceId,
   });
 
@@ -16,24 +16,12 @@ export function useTags() {
     queryClient.invalidateQueries({ queryKey: ["tags", selectedWorkspaceId] });
 
   const createTag = useMutation({
-    mutationFn: (name: string) =>
-      fetch("/api/tags", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, workspaceId: selectedWorkspaceId }),
-      }).then((r) => {
-        if (!r.ok) throw new Error("Failed to create tag");
-        return r.json();
-      }),
+    mutationFn: (name: string) => tagApi.create(name, selectedWorkspaceId!),
     onSuccess: invalidate,
   });
 
   const deleteTag = useMutation({
-    mutationFn: (id: string) =>
-      fetch(`/api/tags?id=${id}`, { method: "DELETE" }).then((r) => {
-        if (!r.ok) throw new Error("Failed to delete tag");
-        return r.json();
-      }),
+    mutationFn: (id: string) => tagApi.delete(id),
     onSuccess: invalidate,
   });
 

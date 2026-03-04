@@ -53,11 +53,13 @@ jest.mock("@/components/ThemeToggle", () => ({
 
 jest.mock("@/features/folders", () => ({
   FolderTree: () => <div data-testid="folder-tree" />,
+  FolderList: () => <div data-testid="folder-list" />,
 }));
 
 jest.mock("@/features/bookmarks", () => ({
   BookmarkCard: () => <div data-testid="bookmark-card" />,
   BookmarkForm: () => <div data-testid="bookmark-form" />,
+  BookmarkList: () => <div data-testid="bookmark-list" />,
 }));
 
 jest.mock("@/components/LoadingScreen", () => ({

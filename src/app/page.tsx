@@ -5,22 +5,19 @@ import {
   Search,
   Plus,
   Archive,
-  Loader2,
   Bookmark,
   ArchiveRestore,
   ArchiveX,
   LogOut,
   Sparkles,
-  FolderPlus,
-  Pencil,
   Trash2,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/features/auth";
-import { FolderTree } from "@/features/folders";
-import { BookmarkCard, BookmarkForm } from "@/features/bookmarks";
+import { FolderList } from "@/features/folders";
+import { BookmarkList, BookmarkForm } from "@/features/bookmarks";
 import { TagList } from "@/features/tags";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { ConfirmModal } from "@/components/ConfirmModal";
@@ -28,42 +25,27 @@ import { WorkspaceSwitcher } from "@/features/workspaces";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useBookmarks } from "@/features/bookmarks/hooks";
-import { useFolders } from "@/features/folders/hooks";
-import type {
-  Bookmark as BookmarkType,
-  BookmarkFormData,
-  Folder,
-} from "@/lib/types";
+import type { Bookmark as BookmarkType, BookmarkFormData } from "@/lib/types";
 
 export default function Home() {
-  const {
-    selectedFolderId,
-    setSelectedFolderId,
-    selectedWorkspaceId,
-    searchQuery,
-    setSearchQuery,
-    showArchived,
-    setShowArchived,
-  } = useStore();
+  const { searchQuery, setSearchQuery, showArchived, setShowArchived } =
+    useStore();
 
   const { isLoading: authLoading, logout } = useAuth();
 
   const {
-    bookmarks,
-    isLoading: bookmarksLoading,
     createBookmark,
     updateBookmark,
     archiveBookmark,
+    deleteBookmark,
     restoreBookmark,
-    moveToFolder,
-    toggleTag,
   } = useBookmarks();
 
-  const { folders, createFolder, updateFolder, deleteFolder } = useFolders();
+  const { selectedWorkspaceId } = useStore();
 
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
-    type: "archive" | "restore";
+    type: "archive" | "restore" | "delete";
     bookmarkId: string;
     bookmarkTitle: string;
   }>({ isOpen: false, type: "archive", bookmarkId: "", bookmarkTitle: "" });
@@ -73,50 +55,7 @@ export default function Home() {
     null,
   );
 
-  // ── Folder handlers ──────────────────────────────────────────────────────
-  const handleCreateFolder = (name: string, parentId?: string) => {
-    createFolder.mutate(
-      { name, parentId },
-      {
-        onSuccess: () =>
-          toast.success("Folder created", {
-            description: `"${name}" has been added.`,
-            icon: <FolderPlus className="w-4 h-4" />,
-          }),
-        onError: () => toast.error("Failed to create folder"),
-      },
-    );
-  };
-
-  const handleUpdateFolder = (id: string, name: string) => {
-    updateFolder.mutate(
-      { id, name },
-      {
-        onSuccess: () =>
-          toast.success("Folder renamed", {
-            description: `"${name}" has been updated.`,
-            icon: <Pencil className="w-4 h-4" />,
-          }),
-        onError: () => toast.error("Failed to rename folder"),
-      },
-    );
-  };
-
-  const handleDeleteFolder = (id: string) => {
-    const folder = folders.find((f: Folder) => f.id === id);
-    if (!confirm("Delete this folder? Bookmarks will be moved to root."))
-      return;
-    deleteFolder.mutate(id, {
-      onSuccess: () =>
-        toast.error("Folder deleted", {
-          description: `"${folder?.name}" has been removed.`,
-          icon: <Trash2 className="w-4 h-4" />,
-        }),
-      onError: () => toast.error("Failed to delete folder"),
-    });
-  };
-
-  // ── Bookmark handlers ─────────────────────────────────────────────────────
+  // ── Bookmark form handlers ────────────────────────────────────────────────
   const handleSubmitBookmark = (data: BookmarkFormData) => {
     const isEditing = !!editingBookmark;
     if (isEditing) {
@@ -151,26 +90,7 @@ export default function Home() {
     }
   };
 
-  const handleDeleteBookmark = (id: string) => {
-    const bookmark = bookmarks.find((b: BookmarkType) => b.id === id);
-    setConfirmModal({
-      isOpen: true,
-      type: "archive",
-      bookmarkId: id,
-      bookmarkTitle: bookmark?.title || "",
-    });
-  };
-
-  const handleRestoreBookmark = (id: string) => {
-    const bookmark = bookmarks.find((b: BookmarkType) => b.id === id);
-    setConfirmModal({
-      isOpen: true,
-      type: "restore",
-      bookmarkId: id,
-      bookmarkTitle: bookmark?.title || "",
-    });
-  };
-
+  // ── Confirm modal handler ─────────────────────────────────────────────────
   const handleConfirmModal = () => {
     const { type, bookmarkId, bookmarkTitle } = confirmModal;
     if (type === "archive") {
@@ -181,13 +101,22 @@ export default function Home() {
             icon: <Archive className="w-4 h-4" />,
           }),
       });
-    } else {
+    } else if (type === "restore") {
       restoreBookmark.mutate(bookmarkId, {
         onSuccess: () =>
           toast.success("Bookmark restored", {
             description: `"${bookmarkTitle}" has been restored.`,
             icon: <ArchiveRestore className="w-4 h-4" />,
           }),
+      });
+    } else {
+      deleteBookmark.mutate(bookmarkId, {
+        onSuccess: () =>
+          toast.success("Bookmark deleted", {
+            description: `"${bookmarkTitle}" has been permanently deleted.`,
+            icon: <Trash2 className="w-4 h-4" />,
+          }),
+        onError: () => toast.error("Failed to permanently delete bookmark"),
       });
     }
     setConfirmModal({
@@ -222,14 +151,7 @@ export default function Home() {
 
         <div className="flex-1 overflow-y-auto">
           <div className="p-4">
-            <FolderTree
-              folders={folders}
-              selectedFolderId={selectedFolderId}
-              onSelectFolder={setSelectedFolderId}
-              onCreateFolder={handleCreateFolder}
-              onUpdateFolder={handleUpdateFolder}
-              onDeleteFolder={handleDeleteFolder}
-            />
+            <FolderList />
           </div>
 
           <TagList />
@@ -296,69 +218,26 @@ export default function Home() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-6">
-          {bookmarksLoading ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="flex flex-col items-center gap-3">
-                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">Loading...</p>
-              </div>
-            </div>
-          ) : bookmarks.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full">
-              <div className="w-24 h-24 bg-linear-to-br from-accent to-secondary rounded-3xl flex items-center justify-center mb-6 shadow-lg">
-                <Archive className="w-12 h-12 text-muted-foreground" />
-              </div>
-              <p className="text-xl font-semibold text-foreground mb-2">
-                No bookmarks yet
-              </p>
-              <p className="text-sm text-muted-foreground mb-6">
-                Start building your collection
-              </p>
-              <Button
-                className="bg-linear-to-r from-primary to-ring hover:opacity-90"
-                onClick={() => {
-                  setEditingBookmark(null);
-                  setShowForm(true);
-                }}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add your first bookmark
-              </Button>
-            </div>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {bookmarks.map((bookmark: BookmarkType) => (
-                <BookmarkCard
-                  key={bookmark.id}
-                  bookmark={bookmark}
-                  folders={folders.map((f: Folder) => ({
-                    id: f.id,
-                    name: f.name,
-                  }))}
-                  tags={[]}
-                  onEdit={(bm) => {
-                    setEditingBookmark(bm);
-                    setShowForm(true);
-                  }}
-                  onDelete={handleDeleteBookmark}
-                  onRestore={handleRestoreBookmark}
-                  onMoveFolder={(bookmarkId, folderId) =>
-                    moveToFolder.mutate({ bookmarkId, folderId })
-                  }
-                  onToggleTag={(bookmarkId, tagId) =>
-                    toggleTag.mutate({ bookmarkId, tagId })
-                  }
-                />
-              ))}
-            </div>
-          )}
+          <BookmarkList
+            onEditBookmark={(bm) => {
+              setEditingBookmark(bm);
+              setShowForm(true);
+            }}
+            onConfirmAction={({ type, bookmarkId, bookmarkTitle }) =>
+              setConfirmModal({ isOpen: true, type, bookmarkId, bookmarkTitle })
+            }
+            onAddNew={() => {
+              setEditingBookmark(null);
+              setShowForm(true);
+            }}
+          />
         </div>
       </main>
 
       {showForm && (
         <BookmarkForm
           bookmark={editingBookmark}
-          folders={folders}
+          folders={[]}
           tags={[]}
           onSubmit={handleSubmitBookmark}
           onClose={() => {
@@ -375,16 +254,36 @@ export default function Home() {
         title={
           confirmModal.type === "archive"
             ? "Archive bookmark?"
-            : "Restore bookmark?"
+            : confirmModal.type === "restore"
+              ? "Restore bookmark?"
+              : "Permanently delete?"
         }
         message={
           confirmModal.type === "archive"
             ? `Are you sure you want to archive "${confirmModal.bookmarkTitle}"? You can restore it later from the archived view.`
-            : `Are you sure you want to restore "${confirmModal.bookmarkTitle}"? It will be moved back to your active bookmarks.`
+            : confirmModal.type === "restore"
+              ? `Are you sure you want to restore "${confirmModal.bookmarkTitle}"? It will be moved back to your active bookmarks.`
+              : `Are you sure you want to permanently delete "${confirmModal.bookmarkTitle}"? This action cannot be undone.`
         }
-        confirmLabel={confirmModal.type === "archive" ? "Archive" : "Restore"}
-        variant={confirmModal.type === "archive" ? "danger" : "success"}
-        icon={confirmModal.type === "archive" ? "archive" : "restore"}
+        confirmLabel={
+          confirmModal.type === "archive"
+            ? "Archive"
+            : confirmModal.type === "restore"
+              ? "Restore"
+              : "Delete permanently"
+        }
+        variant={
+          confirmModal.type === "archive" || confirmModal.type === "delete"
+            ? "danger"
+            : "success"
+        }
+        icon={
+          confirmModal.type === "archive"
+            ? "archive"
+            : confirmModal.type === "restore"
+              ? "restore"
+              : "delete"
+        }
         onConfirm={handleConfirmModal}
         onCancel={() =>
           setConfirmModal({

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Link,
   Edit,
@@ -7,12 +8,16 @@ import {
   ExternalLink,
   Folder,
   ArchiveRestore,
+  Plus,
+  X,
 } from "lucide-react";
-import { Bookmark } from "@/lib/types";
+import { Bookmark, BookmarkUrl } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { bookmarkApi } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,8 +33,11 @@ interface BookmarkCardProps {
   onEdit: (bookmark: Bookmark) => void;
   onDelete: (id: string) => void;
   onRestore?: (id: string) => void;
+  onHardDelete?: (id: string) => void;
   onMoveFolder: (bookmarkId: string, folderId: string) => void;
   onToggleTag: (bookmarkId: string, tagId: string) => void;
+  /** Called after a URL is added or removed so the parent can refetch */
+  onUrlsChanged?: (bookmarkId: string) => void;
 }
 
 export function BookmarkCard({
@@ -39,10 +47,60 @@ export function BookmarkCard({
   onEdit,
   onDelete,
   onRestore,
+  onHardDelete,
   onMoveFolder,
   onToggleTag,
+  onUrlsChanged,
 }: BookmarkCardProps) {
   const primaryUrl = bookmark.urls.find((u) => u.isPrimary) || bookmark.urls[0];
+
+  // URL management state
+  const [showUrlManager, setShowUrlManager] = useState(false);
+  const [addingUrl, setAddingUrl] = useState(false);
+  const [newUrl, setNewUrl] = useState("");
+  const [newUrlLabel, setNewUrlLabel] = useState("");
+  const [urlError, setUrlError] = useState<string | null>(null);
+  const [isPendingUrl, setIsPendingUrl] = useState(false);
+  const [removingUrlId, setRemovingUrlId] = useState<string | null>(null);
+
+  const handleAddUrl = async () => {
+    setUrlError(null);
+    if (!newUrl.trim()) return;
+    try {
+      new URL(newUrl.trim());
+    } catch {
+      setUrlError("Must be a valid URL");
+      return;
+    }
+    setIsPendingUrl(true);
+    try {
+      await bookmarkApi.addUrl(bookmark.id, {
+        url: newUrl.trim(),
+        label: newUrlLabel.trim() || undefined,
+        isPrimary: false,
+      });
+      setNewUrl("");
+      setNewUrlLabel("");
+      setAddingUrl(false);
+      onUrlsChanged?.(bookmark.id);
+    } catch (err) {
+      setUrlError(err instanceof Error ? err.message : "Failed to add URL");
+    } finally {
+      setIsPendingUrl(false);
+    }
+  };
+
+  const handleRemoveUrl = async (urlId: string) => {
+    setRemovingUrlId(urlId);
+    try {
+      await bookmarkApi.removeUrl(bookmark.id, urlId);
+      onUrlsChanged?.(bookmark.id);
+    } catch {
+      // silently ignore — parent refetch will reconcile
+    } finally {
+      setRemovingUrlId(null);
+    }
+  };
 
   return (
     <div className="group bg-card border border-border rounded-xl p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
@@ -75,14 +133,26 @@ export function BookmarkCard({
             <Edit className="w-4 h-4" />
           </Button>
           {bookmark.archived ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onRestore?.(bookmark.id)}
-              className="hover:text-green-500"
-            >
-              <ArchiveRestore className="w-4 h-4" />
-            </Button>
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onRestore?.(bookmark.id)}
+                className="hover:text-green-500"
+                title="Restore bookmark"
+              >
+                <ArchiveRestore className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onHardDelete?.(bookmark.id)}
+                className="hover:text-destructive"
+                title="Permanently delete"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </>
           ) : (
             <Button
               variant="ghost"
@@ -96,30 +166,126 @@ export function BookmarkCard({
         </div>
       </div>
 
+      {/* URL list */}
       {bookmark.urls.length > 0 && (
         <div className="mt-4 space-y-1.5">
-          {bookmark.urls.slice(0, 3).map((url) => (
-            <div key={url.id} className="flex items-center gap-2 text-sm">
-              <Link className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-              <span
-                className={cn(
-                  "truncate text-muted-foreground",
-                  url.isPrimary && "text-foreground font-medium",
-                )}
-              >
-                {url.label || url.url}
-              </span>
-              {url.isPrimary && (
-                <span className="text-[10px] bg-secondary text-muted-foreground px-1.5 py-0.5 rounded-full">
-                  Primary
+          {(showUrlManager ? bookmark.urls : bookmark.urls.slice(0, 3)).map(
+            (url: BookmarkUrl) => (
+              <div key={url.id} className="flex items-center gap-2 text-sm">
+                <Link className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <span
+                  className={cn(
+                    "truncate text-muted-foreground flex-1",
+                    url.isPrimary && "text-foreground font-medium",
+                  )}
+                >
+                  {url.label || url.url}
                 </span>
-              )}
-            </div>
-          ))}
-          {bookmark.urls.length > 3 && (
+                {url.isPrimary && (
+                  <span className="text-[10px] bg-secondary text-muted-foreground px-1.5 py-0.5 rounded-full shrink-0">
+                    Primary
+                  </span>
+                )}
+                {showUrlManager && (
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive shrink-0"
+                    title="Remove URL"
+                    disabled={
+                      bookmark.urls.length <= 1 || removingUrlId === url.id
+                    }
+                    onClick={() => handleRemoveUrl(url.id)}
+                    aria-label={`Remove URL ${url.label || url.url}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            ),
+          )}
+          {!showUrlManager && bookmark.urls.length > 3 && (
             <p className="text-xs text-muted-foreground">
               +{bookmark.urls.length - 3} more
             </p>
+          )}
+          {/* Manage URLs toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              setShowUrlManager((v) => !v);
+              setAddingUrl(false);
+              setUrlError(null);
+            }}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors mt-1"
+          >
+            {showUrlManager ? "Hide URL manager" : "Manage URLs"}
+          </button>
+        </div>
+      )}
+
+      {/* Inline add-URL form */}
+      {showUrlManager && (
+        <div className="mt-2 space-y-2">
+          {addingUrl ? (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Input
+                  type="url"
+                  placeholder="https://example.com"
+                  value={newUrl}
+                  onChange={(e) => setNewUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleAddUrl();
+                    if (e.key === "Escape") setAddingUrl(false);
+                  }}
+                  className="h-7 text-xs flex-1"
+                  autoFocus
+                />
+                <Input
+                  type="text"
+                  placeholder="Label"
+                  value={newUrlLabel}
+                  onChange={(e) => setNewUrlLabel(e.target.value)}
+                  className="h-7 text-xs w-24"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-7 text-xs px-2"
+                  onClick={handleAddUrl}
+                  disabled={isPendingUrl}
+                >
+                  {isPendingUrl ? "Adding…" : "Add"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  className="h-7 w-7"
+                  onClick={() => {
+                    setAddingUrl(false);
+                    setUrlError(null);
+                  }}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              {urlError && (
+                <p className="text-xs text-destructive">{urlError}</p>
+              )}
+            </div>
+          ) : (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => setAddingUrl(true)}
+            >
+              <Plus className="w-3 h-3 mr-1" />
+              Add URL
+            </Button>
           )}
         </div>
       )}

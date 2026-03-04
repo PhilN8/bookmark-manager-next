@@ -8,8 +8,7 @@ export function useFolders() {
 
   const query = useQuery({
     queryKey: ["folders", selectedWorkspaceId],
-    queryFn: () =>
-      fetch(`/api/folders?workspaceId=${selectedWorkspaceId}`).then((r) => r.json()),
+    queryFn: () => folderApi.getAll(selectedWorkspaceId!),
     enabled: !!user && !!selectedWorkspaceId,
   });
 
@@ -18,14 +17,7 @@ export function useFolders() {
 
   const createFolder = useMutation({
     mutationFn: ({ name, parentId }: { name: string; parentId?: string }) =>
-      fetch("/api/folders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, parentId, workspaceId: selectedWorkspaceId }),
-      }).then((r) => {
-        if (!r.ok) throw new Error("Failed to create folder");
-        return r.json();
-      }),
+      folderApi.create(name, selectedWorkspaceId!, parentId),
     onSuccess: invalidate,
   });
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getAuthUser } from '@/lib/auth'
 
 // GET /api/bookmarks/:id - Get single bookmark
 export async function GET(
@@ -132,23 +133,44 @@ export async function PUT(
   }
 }
 
-// DELETE /api/bookmarks/:id - Soft delete bookmark
+// DELETE /api/bookmarks/:id - Soft delete (archive) bookmark
+//   With ?permanent=true  — hard delete (irreversible); bookmark must be archived first
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const user = await getAuthUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   const { id } = await params
+  const permanent = request.nextUrl.searchParams.get('permanent') === 'true'
 
   try {
-    // Validate bookmark exists
     const bookmark = await prisma.bookmark.findUnique({
       where: { id },
+      include: { workspace: { select: { userId: true } } },
     })
 
     if (!bookmark) {
       return NextResponse.json({ error: 'Bookmark not found' }, { status: 404 })
     }
 
+    if (bookmark.workspace.userId !== user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    if (permanent) {
+      if (!bookmark.archived) {
+        return NextResponse.json(
+          { error: 'Bookmark must be archived before it can be permanently deleted' },
+          { status: 400 }
+        )
+      }
+      await prisma.bookmark.delete({ where: { id } })
+      return NextResponse.json({ success: true })
+    }
+
+    // Soft delete
     await prisma.bookmark.update({
       where: { id },
       data: { archived: true },

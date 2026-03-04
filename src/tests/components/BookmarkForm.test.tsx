@@ -2,9 +2,15 @@
 
 "use client";
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { BookmarkForm } from "@/features/bookmarks/components/BookmarkForm";
 import type { Folder, Tag } from "@/lib/types";
+
+// BookmarkForm now calls useFolders() internally; mock it so no store/query
+// setup is needed in these unit tests. The folders prop still overrides it.
+jest.mock("@/features/folders/hooks", () => ({
+  useFolders: () => ({ folders: [], isLoading: false }),
+}));
 
 describe("BookmarkForm", () => {
   const folders: Folder[] = [
@@ -31,7 +37,10 @@ describe("BookmarkForm", () => {
       1,
     );
 
-    fireEvent.click(screen.getByText(/Add URL/));
+    await act(async () => {
+      fireEvent.click(screen.getByText(/Add URL/));
+    });
+
     expect(screen.getAllByPlaceholderText("https://example.com")).toHaveLength(
       2,
     );
@@ -39,7 +48,10 @@ describe("BookmarkForm", () => {
     const primaryChecks = screen.getAllByRole("checkbox");
     expect(primaryChecks[0].getAttribute("aria-checked")).toBe("true");
 
-    fireEvent.click(primaryChecks[1]);
+    await act(async () => {
+      fireEvent.click(primaryChecks[1]);
+    });
+
     expect(primaryChecks[1].getAttribute("aria-checked")).toBe("true");
     expect(primaryChecks[0].getAttribute("aria-checked")).toBe("false");
   });
@@ -56,38 +68,51 @@ describe("BookmarkForm", () => {
       />,
     );
 
-    fireEvent.change(screen.getByPlaceholderText("Enter bookmark title"), {
-      target: { value: "  Example  " },
-    });
-    fireEvent.change(screen.getByPlaceholderText("Add a description..."), {
-      target: { value: "  Notes  " },
-    });
-    fireEvent.change(screen.getByRole("combobox"), {
-      target: { value: "folder-1" },
+    await act(async () => {
+      fireEvent.change(screen.getByPlaceholderText("Enter bookmark title"), {
+        target: { value: "  Example  " },
+      });
+      fireEvent.change(screen.getByPlaceholderText("Add a description..."), {
+        target: { value: "  Notes  " },
+      });
+
+      // Click the "Work" folder option in the FolderPickerTree
+      fireEvent.click(screen.getByRole("option", { name: "Work" }));
+
+      const urlInputs = screen.getAllByPlaceholderText("https://example.com");
+      fireEvent.change(urlInputs[0], {
+        target: { value: "https://example.com" },
+      });
     });
 
-    const urlInputs = screen.getAllByPlaceholderText("https://example.com");
-    fireEvent.change(urlInputs[0], {
-      target: { value: "https://example.com" },
+    await act(async () => {
+      fireEvent.click(screen.getByText(/Add URL/));
     });
 
-    fireEvent.click(screen.getByText(/Add URL/));
-    const updatedUrlInputs = screen.getAllByPlaceholderText(
-      "https://example.com",
-    );
-    fireEvent.change(updatedUrlInputs[1], {
-      target: { value: "https://second.com" },
+    await act(async () => {
+      const updatedUrlInputs = screen.getAllByPlaceholderText(
+        "https://example.com",
+      );
+      fireEvent.change(updatedUrlInputs[1], {
+        target: { value: "https://second.com" },
+      });
+
+      const labelInputs = screen.getAllByPlaceholderText("Label");
+      fireEvent.change(labelInputs[1], {
+        target: { value: "Docs" },
+      });
+
+      fireEvent.click(screen.getByText("React"));
     });
 
-    const labelInputs = screen.getAllByPlaceholderText("Label");
-    fireEvent.change(labelInputs[1], {
-      target: { value: "Docs" },
+    await act(async () => {
+      fireEvent.click(screen.getByText("Create"));
     });
-    fireEvent.click(screen.getByText("React"));
 
-    fireEvent.click(screen.getByText("Create"));
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+    });
 
-    expect(onSubmit).toHaveBeenCalledTimes(1);
     const payload = onSubmit.mock.calls[0][0];
 
     expect(payload.title).toBe("Example");
@@ -112,12 +137,18 @@ describe("BookmarkForm", () => {
       />
     );
 
-    fireEvent.click(screen.getByText(/Add URL/));
+    await act(async () => {
+      fireEvent.click(screen.getByText(/Add URL/));
+    });
+
     const primaryChecks = screen.getAllByRole("checkbox");
     expect(primaryChecks).toHaveLength(2);
 
     // Set the second URL as primary
-    fireEvent.click(primaryChecks[1]);
+    await act(async () => {
+      fireEvent.click(primaryChecks[1]);
+    });
+
     expect(primaryChecks[1].getAttribute("aria-checked")).toBe("true");
     expect(primaryChecks[0].getAttribute("aria-checked")).toBe("false");
   });

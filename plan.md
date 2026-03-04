@@ -106,28 +106,24 @@ By the end of MVP:
 - Per-workspace tags with create/delete
 - Workspace CRUD with auto-selection
 - Jest 30 + Testing Library test suite (unit, component, feature/DB integration)
+- `folderApi` and `tagApi` in `src/lib/api.ts` accept `workspaceId`; `useFolders` and `useTags` use typed wrappers (no inline `fetch`)
+- `src/components/AuthProvider.tsx` removed; `better-auth` React client no longer wired
+- `BookmarkForm` migrated to `react-hook-form` + `zodResolver` + `useFieldArray`; inline `useState` form state removed
+- Unit tests for all four feature hooks (`useBookmarks`, `useFolders`, `useTags`, `useWorkspaces`) using `renderHook` + `QueryClientProvider`
 - AGENTS.md documenting architecture, patterns and conventions
 
 ---
 
 ## 🚀 Next Steps
 
-1. **Migrate `useFolders` and `useTags` to typed API wrappers** — replace remaining inline `fetch` calls in those hooks with `folderApi` / `tagApi` from `src/lib/api.ts` to match the rest of the codebase.
+1. **Hard delete for bookmarks** — only soft-archive is implemented; a "permanently delete" action from the archived view is the natural follow-on.
 
-2. **Remove or repurpose `src/components/AuthProvider.tsx`** — it wires `better-auth`'s React client but the app uses custom JWT auth; it is dead code that adds confusion.
+2. **Extend rate limiting** — currently only `POST /api/auth/login` is rate-limited; apply the same guard to `/api/auth/register` and high-frequency write endpoints.
 
-3. **Adopt `react-hook-form` in `BookmarkForm`** — the library is installed but forms still use plain `useState`; migration would simplify validation, error display, and dirty-state tracking.
+3. **Nested folder picker in `BookmarkForm`** — the folder selector is currently a flat indented list; replace it with the real `FolderTree` component for consistency and usability with deep hierarchies.
 
-4. **Full-text search via GIN index** — a PostgreSQL GIN index on `ts_vector(title, description, url)` is noted in the schema design but not yet created; would improve search performance at scale.
+4. **Pagination for the bookmark list** — all bookmarks in a workspace are fetched in a single query; add cursor-based or offset pagination before datasets grow large.
 
-5. **Hard delete for bookmarks** — only soft-archive is implemented; a "permanently delete" action from the archived view is the natural follow-on.
+5. **Full-text search via GIN index** — a PostgreSQL GIN index on `ts_vector(title, description, url)` is noted in the schema design but not yet created; would improve search performance at scale.
 
-6. **Extend rate limiting** — currently only `POST /api/auth/login` is rate-limited; apply the same guard to `/api/auth/register` and high-frequency write endpoints.
-
-7. **Pagination for the bookmark list** — all bookmarks in a workspace are fetched in a single query; add cursor-based or offset pagination before datasets grow large.
-
-8. **Unit tests for feature hooks** — `useBookmarks`, `useFolders`, `useTags`, `useWorkspaces` have no unit tests; cover them with `renderHook` + `QueryClientProvider` to reach the 100% coverage target on new code.
-
-9. **Nested folder picker in `BookmarkForm`** — the folder selector is currently a flat indented list; replace it with the real `FolderTree` component for consistency and usability with deep hierarchies.
-
-10. **URL sub-resource management (Snapshots groundwork)** — the schema has `Snapshot` and `bookmarks/[id]/urls` is already stubbed in the API; implementing per-URL add/remove in the UI unblocks the snapshot capture feature.
+6. **URL sub-resource management (Snapshots groundwork)** — the schema has `Snapshot` and `bookmarks/[id]/urls` is already stubbed in the API; implementing per-URL add/remove in the UI unblocks the snapshot capture feature.
