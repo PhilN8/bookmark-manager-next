@@ -69,10 +69,16 @@ export interface ApiResponse<T> {
   error?: string
 }
 
+// Pagination
+export interface BookmarkPage {
+  items: Bookmark[]
+  nextCursor: string | null
+}
+
 // Modal Types
 export interface ConfirmModalState {
   isOpen: boolean
-  type: "archive" | "restore"
+  type: "archive" | "restore" | "delete"
   bookmarkId: string
   bookmarkTitle: string
 }

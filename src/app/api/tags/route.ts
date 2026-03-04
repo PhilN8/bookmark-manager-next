@@ -1,12 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
+import { getAuthUser } from '@/lib/auth'
+import { checkRateLimit, getRateLimitIdentifier, writeLimitConfig } from '@/lib/rateLimit'
 import { createTagSchema } from '@/lib/schemas'
+
+function applyWriteRateLimit(request: NextRequest) {
+  const identifier = `write:${getRateLimitIdentifier(request)}`
+  return checkRateLimit(identifier, writeLimitConfig)
+}
 
 // GET /api/tags - List all tags
 export async function GET(request: NextRequest) {
+  const user = await getAuthUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const { searchParams } = new URL(request.url)
-  const workspaceId = searchParams.get('workspaceId') || 'default'
+  const workspaceId = searchParams.get('workspaceId')
+
+  if (!workspaceId) {
+    return NextResponse.json({ error: 'Workspace ID is required' }, { status: 400 })
+  }
+
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: workspaceId },
+  })
+
+  if (!workspace || workspace.userId !== user.id) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   try {
     const tags = await prisma.tag.findMany({
@@ -26,10 +50,25 @@ export async function GET(request: NextRequest) {
 
 // POST /api/tags - Create a new tag
 export async function POST(request: NextRequest) {
+  const user = await getAuthUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const rateLimit = applyWriteRateLimit(request)
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please slow down.' },
+      {
+        status: 429,
+        headers: { 'Retry-After': Math.ceil((rateLimit.resetTime - Date.now()) / 1000).toString() },
+      }
+    )
+  }
+
   try {
     const body = await request.json()
 
-    // Validate input with Zod
     const validation = createTagSchema.safeParse(body)
     if (!validation.success) {
       return NextResponse.json(
@@ -38,31 +77,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { name, workspaceId = 'default' } = validation.data
+    const { name, workspaceId } = validation.data
 
-    // Ensure workspace exists
-    let workspace = await prisma.workspace.findUnique({
+    if (!workspaceId) {
+      return NextResponse.json({ error: 'Workspace ID is required' }, { status: 400 })
+    }
+
+    const workspace = await prisma.workspace.findUnique({
       where: { id: workspaceId },
     })
 
-    if (!workspace) {
-      // Create default workspace with a default user if it doesn't exist
-      let user = await prisma.user.findFirst()
-      if (!user) {
-        user = await prisma.user.create({
-          data: {
-            email: 'default@bookmark-manager.local',
-            passwordHash: 'placeholder',
-          },
-        })
-      }
-      workspace = await prisma.workspace.create({
-        data: {
-          id: workspaceId,
-          name: 'Default Workspace',
-          userId: user.id,
-        },
-      })
+    if (!workspace || workspace.userId !== user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const existingTag = await prisma.tag.findUnique({
@@ -91,6 +117,22 @@ export async function POST(request: NextRequest) {
 // DELETE /api/tags - Delete a tag
 // Note: Prefer using DELETE /api/tags/:id for RESTful operations
 export async function DELETE(request: NextRequest) {
+  const user = await getAuthUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const rateLimit = applyWriteRateLimit(request)
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please slow down.' },
+      {
+        status: 429,
+        headers: { 'Retry-After': Math.ceil((rateLimit.resetTime - Date.now()) / 1000).toString() },
+      }
+    )
+  }
+
   const { searchParams } = new URL(request.url)
   const id = searchParams.get('id')
 

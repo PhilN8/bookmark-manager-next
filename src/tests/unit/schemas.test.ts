@@ -315,5 +315,13 @@ describe('Zod Schemas', () => {
     it('should preserve valid search terms', () => {
       expect(sanitizeSearchQuery('javascript tutorial')).toBe('javascript tutorial')
     })
+
+    it('should strip colons to avoid invalid tsquery syntax', () => {
+      expect(sanitizeSearchQuery('foo:bar')).toBe('foobar')
+    })
+
+    it('should handle mixed tsquery-hostile input', () => {
+      expect(sanitizeSearchQuery('react:hooks OR next:js')).toBe('reacthooks OR nextjs')
+    })
   })
 })

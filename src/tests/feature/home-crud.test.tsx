@@ -2,63 +2,71 @@
 
 "use client";
 
+import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Home from "@/app/page";
 import { useStore } from "@/lib/store";
 import { useRouter } from "next/navigation";
-import type { Bookmark, Folder, Tag, Workspace } from "@/lib/types";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
+
+function createTestQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: 0 },
+      mutations: { retry: false },
+    },
+  });
+}
+
+function renderWithQueryClient(ui: React.ReactElement) {
+  const queryClient = createTestQueryClient();
+  return render(
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
+  );
+}
 
 jest.mock("next/navigation", () => ({
   useRouter: jest.fn(),
 }));
 
-// Define proper store state type
+// Mirror the lean store interface (UI state only — no server data)
 interface AppState {
-  bookmarks: Bookmark[];
-  folders: Folder[];
-  tags: Tag[];
-  workspaces: Workspace[];
+  user: { id: string; email: string; name: string | null } | null;
   selectedWorkspaceId: string | null;
   selectedFolderId: string | null;
   selectedTagId: string | null;
   searchQuery: string;
   showArchived: boolean;
-  isLoading: boolean;
-  setBookmarks: (bookmarks: Bookmark[]) => void;
-  setFolders: (folders: Folder[]) => void;
-  setTags: (tags: Tag[]) => void;
-  setWorkspaces: (workspaces: Workspace[]) => void;
+  setUser: (user: { id: string; email: string; name: string | null } | null) => void;
   setSelectedWorkspaceId: (id: string | null) => void;
   setSelectedFolderId: (id: string | null) => void;
   setSelectedTagId: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
   setShowArchived: (show: boolean) => void;
-  setIsLoading: (loading: boolean) => void;
 }
 
 jest.mock("@/components/ThemeToggle", () => ({
   ThemeToggle: () => <div data-testid="theme-toggle" />,
 }));
 
-jest.mock("@/components/FolderSidebar", () => ({
+jest.mock("@/features/folders", () => ({
   FolderTree: () => <div data-testid="folder-tree" />,
+  FolderList: () => <div data-testid="folder-list" />,
 }));
 
-jest.mock("@/components/BookmarkCard", () => ({
+jest.mock("@/features/bookmarks", () => ({
   BookmarkCard: () => <div data-testid="bookmark-card" />,
-}));
-
-jest.mock("@/components/BookmarkForm", () => ({
   BookmarkForm: () => <div data-testid="bookmark-form" />,
+  BookmarkList: () => <div data-testid="bookmark-list" />,
 }));
 
 jest.mock("@/components/LoadingScreen", () => ({
   LoadingScreen: () => <div data-testid="loading-screen" />,
 }));
 
-jest.mock("@/components/WorkspaceSwitcher", () => ({
+jest.mock("@/features/workspaces", () => ({
   WorkspaceSwitcher: () => <div data-testid="workspace-switcher" />,
 }));
 
@@ -73,29 +81,19 @@ describe("Home CRUD interactions", () => {
   let dynamicStore: AppState;
 
   beforeEach(async () => {
-    // Create a dynamic store that actually updates state when setters are called
+    // Create a dynamic store that actually updates state when setters are called.
+    // setUser also re-points the mock so React picks up the updated state on next render.
     dynamicStore = {
-      bookmarks: [],
-      folders: [],
-      tags: [{ id: "tag-1", name: "React" }],
-      workspaces: [],
-      selectedWorkspaceId: null,
+      user: { id: "user-1", email: "test@example.com", name: null },
+      selectedWorkspaceId: "ws-1",
       selectedFolderId: null,
       selectedTagId: null,
       searchQuery: "",
       showArchived: false,
-      isLoading: false,
-      setBookmarks: (bookmarks: Bookmark[]) => {
-        dynamicStore.bookmarks = bookmarks;
-      },
-      setFolders: (folders: Folder[]) => {
-        dynamicStore.folders = folders;
-      },
-      setTags: (tags: Tag[]) => {
-        dynamicStore.tags = tags;
-      },
-      setWorkspaces: (workspaces: Workspace[]) => {
-        dynamicStore.workspaces = workspaces;
+      setUser: (user) => {
+        dynamicStore.user = user;
+        // Refresh mock so next useStore() call returns updated state
+        useStoreMock.mockImplementation(() => dynamicStore);
       },
       setSelectedWorkspaceId: (id: string | null) => {
         dynamicStore.selectedWorkspaceId = id;
@@ -111,9 +109,6 @@ describe("Home CRUD interactions", () => {
       },
       setShowArchived: (show: boolean) => {
         dynamicStore.showArchived = show;
-      },
-      setIsLoading: (loading: boolean) => {
-        dynamicStore.isLoading = loading;
       },
     };
 
@@ -162,7 +157,7 @@ describe("Home CRUD interactions", () => {
   });
 
   it("creates a tag with trimmed name", async () => {
-    render(<Home />);
+    renderWithQueryClient(<Home />);
 
     // Wait for LoadingScreen to disappear (indicates initialLoad is complete and auth check passed)
     await waitFor(
@@ -173,7 +168,11 @@ describe("Home CRUD interactions", () => {
       { timeout: 10000 },
     );
 
-    fireEvent.click(screen.getByLabelText("Add tag"));
+    // Find the Plus button in the Tags section by looking for the Tags heading then the button after it
+    const tagsHeading = screen.getByText("Tags");
+    const tagsSection = tagsHeading.closest("div")?.parentElement;
+    const addTagButton = tagsSection?.querySelector("button");
+    if (addTagButton) fireEvent.click(addTagButton);
     const input = screen.getByPlaceholderText("Tag name");
     fireEvent.change(input, { target: { value: "  New Tag  " } });
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
@@ -188,7 +187,7 @@ describe("Home CRUD interactions", () => {
   });
 
   it("deletes a tag after confirmation", async () => {
-    render(<Home />);
+    renderWithQueryClient(<Home />);
 
     // Wait for LoadingScreen to disappear
     await waitFor(
@@ -199,7 +198,11 @@ describe("Home CRUD interactions", () => {
       { timeout: 10000 },
     );
 
-    fireEvent.click(screen.getByLabelText("Delete tag React"));
+    // Find the React tag badge, then click the delete button next to it
+    const reactTag = await screen.findByText("React", {}, { timeout: 5000 });
+    const tagGroup = reactTag.closest(".group");
+    const deleteButton = tagGroup?.querySelector("button");
+    if (deleteButton) fireEvent.click(deleteButton);
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(

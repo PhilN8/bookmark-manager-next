@@ -1,53 +1,75 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getAuthUser } from '@/lib/auth'
+import { checkRateLimit, getRateLimitIdentifier, writeLimitConfig } from '@/lib/rateLimit'
 
-// DELETE /api/bookmarks/:id/urls/:urlId - Remove a specific URL from a bookmark
+// DELETE /api/bookmarks/:id/urls/:urlId — remove a URL from a bookmark
 export async function DELETE(
     request: NextRequest,
     { params }: { params: Promise<{ id: string; urlId: string }> }
 ) {
+    const ip = getRateLimitIdentifier(request)
+    const { allowed } = checkRateLimit(`write:${ip}`, writeLimitConfig)
+    if (!allowed) {
+        return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
+
+    const user = await getAuthUser()
+    if (!user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { id, urlId } = await params
 
     try {
-        // Check if this is the only URL or the primary URL
-        const bookmark = await prisma.bookmark.findUnique({
-            where: { id },
-            include: { urls: true },
+        // Verify the URL exists and belongs to this bookmark
+        const bookmarkUrl = await prisma.bookmarkUrl.findUnique({
+            where: { id: urlId },
+            include: {
+                bookmark: {
+                    include: { workspace: true, urls: true },
+                },
+            },
         })
 
-        if (!bookmark) {
-            return NextResponse.json({ error: 'Bookmark not found' }, { status: 404 })
-        }
-
-        const urlToDelete = bookmark.urls.find(u => u.id === urlId)
-        if (!urlToDelete) {
+        if (!bookmarkUrl) {
             return NextResponse.json({ error: 'URL not found' }, { status: 404 })
         }
 
-        // Prevent deletion if it's the only URL
-        if (bookmark.urls.length === 1) {
+        if (bookmarkUrl.bookmarkId !== id) {
+            return NextResponse.json({ error: 'URL does not belong to this bookmark' }, { status: 400 })
+        }
+
+        if (bookmarkUrl.bookmark.workspace.userId !== user.id) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
+
+        const allUrls = bookmarkUrl.bookmark.urls
+        if (allUrls.length <= 1) {
             return NextResponse.json(
-                { error: 'Cannot delete the only URL. A bookmark must have at least one URL.' },
+                { error: 'Cannot remove the last URL from a bookmark' },
                 { status: 400 }
             )
         }
 
-        // If deleting the primary URL, promote another URL to primary
-        if (urlToDelete.isPrimary) {
-            const otherUrl = bookmark.urls.find(u => u.id !== urlId)
-            if (otherUrl) {
-                await prisma.bookmarkUrl.update({
-                    where: { id: otherUrl.id },
-                    data: { isPrimary: true },
-                })
+        await prisma.$transaction(async (tx) => {
+            await tx.bookmarkUrl.delete({ where: { id: urlId } })
+
+            // If the deleted URL was primary, promote the first remaining URL
+            if (bookmarkUrl.isPrimary) {
+                const remaining = allUrls.filter((u) => u.id !== urlId)
+                if (remaining.length > 0) {
+                    await tx.bookmarkUrl.update({
+                        where: { id: remaining[0].id },
+                        data: { isPrimary: true },
+                    })
+                }
             }
-        }
+        })
 
-        await prisma.bookmarkUrl.delete({ where: { id: urlId } })
-
-        return NextResponse.json({ success: true })
+        return new NextResponse(null, { status: 204 })
     } catch (error) {
-        console.error('Error deleting URL:', error)
-        return NextResponse.json({ error: 'Failed to delete URL' }, { status: 500 })
+        console.error('Error removing URL from bookmark:', error)
+        return NextResponse.json({ error: 'Failed to remove URL' }, { status: 500 })
     }
 }

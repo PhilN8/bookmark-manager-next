@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Folder as FolderType } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface FolderTreeProps {
   folders: FolderType[];
@@ -28,7 +30,6 @@ export function FolderTree({
   onCreateFolder,
   onDeleteFolder,
 }: FolderTreeProps) {
-  // Note: onUpdateFolder kept in interface for future rename feature
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [isCreating, setIsCreating] = useState<string | null>(null);
   const [newFolderName, setNewFolderName] = useState("");
@@ -60,28 +61,30 @@ export function FolderTree({
       <div key={folder.id}>
         <div
           className={cn(
-            "flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer text-sm transition-all duration-200",
+            "flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer text-sm transition-all duration-200 group",
             isSelected
               ? "bg-primary text-primary-foreground"
-              : "hover:bg-secondary/50",
+              : "hover:bg-accent",
           )}
           style={{ paddingLeft: `${depth * 12 + 12}px` }}
           onClick={() => onSelectFolder(folder.id)}
         >
           {hasChildren ? (
-            <button
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="h-5 w-5 p-0"
               onClick={(e) => {
                 e.stopPropagation();
                 toggleExpand(folder.id);
               }}
-              className="p-0.5 hover:bg-secondary rounded text-muted-foreground hover:text-foreground"
             >
               {isExpanded ? (
-                <ChevronDown className="w-4 h-4" />
+                <ChevronDown className="h-3 w-3" />
               ) : (
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="h-3 w-3" />
               )}
-            </button>
+            </Button>
           ) : (
             <span className="w-5" />
           )}
@@ -92,21 +95,22 @@ export function FolderTree({
           )}
           <span className="truncate flex-1 font-medium">{folder.name}</span>
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
               onClick={(e) => {
                 e.stopPropagation();
                 onDeleteFolder?.(folder.id);
               }}
-              aria-label={`Delete folder ${folder.name}`}
-              className="p-1 hover:bg-red-50 rounded text-muted-foreground hover:text-red-500"
             >
-              <Trash2 className="w-3 h-3" />
-            </button>
+              <Trash2 className="h-3 w-3" />
+            </Button>
           </div>
         </div>
         {isExpanded && hasChildren && (
           <div>
-            {folder.children.map((child) => renderFolder(child, depth + 1))}
+            {folder.children!.map((child) => renderFolder(child, depth + 1))}
           </div>
         )}
         {isCreating === folder.id && (
@@ -114,7 +118,7 @@ export function FolderTree({
             className="flex items-center gap-2 px-3 py-2"
             style={{ paddingLeft: `${(depth + 1) * 12 + 12}px` }}
           >
-            <input
+            <Input
               type="text"
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
@@ -122,7 +126,7 @@ export function FolderTree({
                 if (e.key === "Enter") handleCreateFolder(folder.id);
                 if (e.key === "Escape") setIsCreating(null);
               }}
-              className="flex-1 px-3 py-1.5 text-sm border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              className="h-8 text-sm"
               autoFocus
             />
           </div>
@@ -139,20 +143,21 @@ export function FolderTree({
         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
           Folders
         </h3>
-        <button
+        <Button
+          variant="ghost"
+          size="icon-xs"
           onClick={() => setIsCreating("root")}
-          className="p-1.5 hover:bg-secondary rounded-lg transition-colors text-muted-foreground hover:text-foreground"
           title="New folder"
         >
-          <Plus className="w-3.5 h-3.5" />
-        </button>
+          <Plus className="h-3.5 w-3.5" />
+        </Button>
       </div>
       <div
         className={cn(
           "flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer text-sm transition-all duration-200 mx-2",
           selectedFolderId === null
             ? "bg-primary text-primary-foreground"
-            : "hover:bg-secondary/50",
+            : "hover:bg-accent",
         )}
         onClick={() => onSelectFolder(null)}
       >
@@ -162,7 +167,7 @@ export function FolderTree({
       {rootFolders.map((folder) => renderFolder(folder))}
       {isCreating === "root" && (
         <div className="flex items-center gap-2 px-3 py-2 mx-2 mt-1">
-          <input
+          <Input
             type="text"
             value={newFolderName}
             onChange={(e) => setNewFolderName(e.target.value)}
@@ -171,7 +176,7 @@ export function FolderTree({
               if (e.key === "Escape") setIsCreating(null);
             }}
             placeholder="Folder name"
-            className="flex-1 px-3 py-1.5 text-sm border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+            className="h-8 text-sm"
             autoFocus
           />
         </div>

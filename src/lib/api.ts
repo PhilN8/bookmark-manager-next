@@ -1,4 +1,4 @@
-import { Bookmark, BookmarkFormData, Folder, Tag, User, Workspace } from './types'
+import { Bookmark, BookmarkFormData, BookmarkPage, BookmarkUrl, Folder, Tag, Workspace } from './types'
 
 const API_BASE = '/api'
 
@@ -17,12 +17,18 @@ export const bookmarkApi = {
     folder?: string
     tag?: string
     archived?: boolean
-  }): Promise<Bookmark[]> {
+    cursor?: string
+    limit?: number
+    workspaceId?: string
+  }): Promise<BookmarkPage> {
     const searchParams = new URLSearchParams()
+    if (params?.workspaceId) searchParams.set('workspaceId', params.workspaceId)
     if (params?.q) searchParams.set('q', params.q)
     if (params?.folder) searchParams.set('folder', params.folder)
     if (params?.tag) searchParams.set('tag', params.tag)
     if (params?.archived) searchParams.set('archived', 'true')
+    if (params?.cursor) searchParams.set('cursor', params.cursor)
+    if (params?.limit) searchParams.set('limit', String(params.limit))
     
     const res = await fetch(`${API_BASE}/bookmarks?${searchParams}`)
     return handleResponse(res)
@@ -56,6 +62,11 @@ export const bookmarkApi = {
     if (!res.ok) throw new Error('Failed to archive bookmark')
   },
 
+  async hardDelete(id: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/bookmarks/${id}?permanent=true`, { method: 'DELETE' })
+    if (!res.ok) throw new Error('Failed to permanently delete bookmark')
+  },
+
   async restore(id: string): Promise<Bookmark> {
     return this.update(id, { archived: false })
   },
@@ -67,20 +78,42 @@ export const bookmarkApi = {
   async setTags(id: string, tagIds: string[]): Promise<Bookmark> {
     return this.update(id, { tags: tagIds })
   },
+
+  async addUrl(
+    bookmarkId: string,
+    data: { url: string; isPrimary?: boolean; label?: string }
+  ): Promise<BookmarkUrl> {
+    const res = await fetch(`${API_BASE}/bookmarks/${bookmarkId}/urls`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    return handleResponse<BookmarkUrl>(res)
+  },
+
+  async removeUrl(bookmarkId: string, urlId: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/bookmarks/${bookmarkId}/urls/${urlId}`, {
+      method: 'DELETE',
+    })
+    if (!res.ok && res.status !== 204) {
+      const err = await res.json().catch(() => ({ error: 'Failed to remove URL' }))
+      throw new Error(err.error || 'Failed to remove URL')
+    }
+  },
 }
 
 // Folder API
 export const folderApi = {
-  async getAll(): Promise<Folder[]> {
-    const res = await fetch(`${API_BASE}/folders`)
+  async getAll(workspaceId: string): Promise<Folder[]> {
+    const res = await fetch(`${API_BASE}/folders?workspaceId=${encodeURIComponent(workspaceId)}`)
     return handleResponse(res)
   },
 
-  async create(name: string, parentId?: string): Promise<Folder> {
+  async create(name: string, workspaceId: string, parentId?: string): Promise<Folder> {
     const res = await fetch(`${API_BASE}/folders`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, parentId }),
+      body: JSON.stringify({ name, workspaceId, parentId }),
     })
     return handleResponse(res)
   },
@@ -102,16 +135,16 @@ export const folderApi = {
 
 // Tag API
 export const tagApi = {
-  async getAll(): Promise<Tag[]> {
-    const res = await fetch(`${API_BASE}/tags`)
+  async getAll(workspaceId: string): Promise<Tag[]> {
+    const res = await fetch(`${API_BASE}/tags?workspaceId=${encodeURIComponent(workspaceId)}`)
     return handleResponse(res)
   },
 
-  async create(name: string): Promise<Tag> {
+  async create(name: string, workspaceId: string): Promise<Tag> {
     const res = await fetch(`${API_BASE}/tags`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, workspaceId }),
     })
     return handleResponse(res)
   },

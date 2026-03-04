@@ -47,7 +47,7 @@ export const createTagSchema = z.object({
   workspaceId: z.string().optional(),
 })
 
-// Sanitize search query - prevent injection
+// Sanitize search query - prevent injection and tsquery syntax errors
 export function sanitizeSearchQuery(query: string): string {
   return query
     .replace(/['";\\]/g, '')
@@ -55,5 +55,6 @@ export function sanitizeSearchQuery(query: string): string {
     .replace(/#/g, '')
     .replace(/\/\*/g, '')
     .replace(/\*\//g, '')
+    .replace(/:/g, '')   // colon causes invalid tsquery syntax (e.g. "foo:bar")
     .trim()
 }

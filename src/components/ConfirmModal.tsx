@@ -1,21 +1,30 @@
 "use client";
 
-import { AlertTriangle, Archive, ArchiveRestore, X } from "lucide-react";
+import { AlertTriangle, Archive, ArchiveRestore, Trash2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 interface ConfirmModalProps {
-  isOpen: boolean;
+  open: boolean;
   title: string;
   message: string;
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: "default" | "danger" | "success";
-  icon?: "archive" | "restore" | "warning";
+  icon?: "archive" | "restore" | "warning" | "delete";
   onConfirm: () => void;
   onCancel: () => void;
 }
 
 export function ConfirmModal({
-  isOpen,
+  open,
   title,
   message,
   confirmLabel = "Confirm",
@@ -25,71 +34,59 @@ export function ConfirmModal({
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
-  if (!isOpen) return null;
-
   const iconComponent = {
     archive: <Archive className="w-5 h-5" />,
     restore: <ArchiveRestore className="w-5 h-5" />,
     warning: <AlertTriangle className="w-5 h-5" />,
+    delete: <Trash2 className="w-5 h-5" />,
+  };
+
+  const variantStyles = {
+    default: {
+      iconBg: "bg-primary/10 text-primary",
+      buttonVariant: "default" as const,
+    },
+    danger: {
+      iconBg: "bg-destructive/10 text-destructive",
+      buttonVariant: "destructive" as const,
+    },
+    success: {
+      iconBg: "bg-green-500/10 text-green-500",
+      buttonVariant: "default" as const,
+    },
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
-        onClick={onCancel}
-      />
-
-      {/* Modal */}
-      <div className="relative bg-card border border-border rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl animate-in zoom-in-95 fade-in duration-200">
-        <button
-          onClick={onCancel}
-          className="absolute top-4 right-4 p-1.5 hover:bg-secondary rounded-lg text-muted-foreground transition-colors"
-        >
-          <X className="w-4 h-4" />
-        </button>
-
-        <div className="flex items-start gap-4">
-          <div
-            className={`shrink-0 w-12 h-12 rounded-xl flex items-center justify-center ${
-              variant === "danger"
-                ? "bg-red-100 dark:bg-red-950 text-red-500"
-                : variant === "success"
-                  ? "bg-green-100 dark:bg-green-950 text-green-500"
-                  : "bg-primary/10 text-primary"
-            }`}
-          >
-            {iconComponent[icon]}
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onCancel()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <div className="flex items-start gap-4">
+            <div
+              className={`shrink-0 w-12 h-12 rounded-xl flex items-center justify-center ${variantStyles[variant].iconBg}`}
+            >
+              {iconComponent[icon]}
+            </div>
+            <div>
+              <DialogTitle>{title}</DialogTitle>
+              <DialogDescription className="mt-1.5">
+                {message}
+              </DialogDescription>
+            </div>
           </div>
-
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-foreground">{title}</h3>
-            <p className="mt-1.5 text-sm text-muted-foreground">{message}</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 mt-6">
-          <button
-            onClick={onCancel}
-            className="flex-1 px-4 py-2.5 bg-secondary text-secondary-foreground rounded-xl font-medium hover:bg-accent transition-colors"
-          >
+        </DialogHeader>
+        <DialogFooter className="mt-4">
+          <Button variant="outline" onClick={onCancel} className="flex-1">
             {cancelLabel}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant={variantStyles[variant].buttonVariant}
             onClick={onConfirm}
-            className={`flex-1 px-4 py-2.5 rounded-xl font-medium transition-colors ${
-              variant === "danger"
-                ? "bg-red-500 text-white hover:bg-red-600"
-                : variant === "success"
-                  ? "bg-green-500 text-white hover:bg-green-600"
-                  : "bg-primary text-primary-foreground hover:opacity-90"
-            }`}
+            className="flex-1"
           >
             {confirmLabel}
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

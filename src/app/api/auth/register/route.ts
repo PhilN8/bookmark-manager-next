@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { hash } from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { createToken, setAuthCookie } from '@/lib/auth'
+import { checkRateLimit, getRateLimitIdentifier } from '@/lib/rateLimit'
 import { z } from 'zod'
 
 const registerSchema = z.object({
@@ -10,6 +11,22 @@ const registerSchema = z.object({
 })
 
 export async function POST(request: Request) {
+  // Check rate limit (same as login — prevent account creation abuse)
+  const identifier = getRateLimitIdentifier(request)
+  const rateLimit = checkRateLimit(identifier)
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: 'Too many registration attempts. Please try again later.' },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': Math.ceil((rateLimit.resetTime - Date.now()) / 1000).toString(),
+        },
+      }
+    )
+  }
+
   try {
     const body = await request.json()
     const validation = registerSchema.safeParse(body)

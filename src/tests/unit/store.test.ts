@@ -11,33 +11,25 @@ Object.defineProperty(global, 'localStorage', { value: mockLocalStorage })
 
 describe('Store', () => {
   beforeEach(() => {
-    // Reset store state
     useStore.setState({
-      bookmarks: [],
-      folders: [],
-      tags: [],
+      user: null,
+      selectedWorkspaceId: null,
       selectedFolderId: null,
       selectedTagId: null,
       searchQuery: '',
       showArchived: false,
-      isLoading: false,
     })
   })
 
   describe('initial state', () => {
-    it('should have empty bookmarks', () => {
-      const { bookmarks } = useStore.getState()
-      expect(bookmarks).toEqual([])
+    it('should have no user by default', () => {
+      const { user } = useStore.getState()
+      expect(user).toBeNull()
     })
 
-    it('should have empty folders', () => {
-      const { folders } = useStore.getState()
-      expect(folders).toEqual([])
-    })
-
-    it('should have empty tags', () => {
-      const { tags } = useStore.getState()
-      expect(tags).toEqual([])
+    it('should have no selected workspace by default', () => {
+      const { selectedWorkspaceId } = useStore.getState()
+      expect(selectedWorkspaceId).toBeNull()
     })
 
     it('should have no selected folder', () => {
@@ -59,30 +51,24 @@ describe('Store', () => {
       const { showArchived } = useStore.getState()
       expect(showArchived).toBe(false)
     })
-
-    it('should not be loading by default', () => {
-      const { isLoading } = useStore.getState()
-      expect(isLoading).toBe(false)
-    })
   })
 
   describe('setters', () => {
-    it('should set bookmarks', () => {
-      const mockBookmarks = [{ id: '1', title: 'Test', description: null, folderId: null, workspaceId: 'test', archived: false, createdAt: '', updatedAt: '', urls: [], tags: [], folder: null }]
-      useStore.getState().setBookmarks(mockBookmarks)
-      expect(useStore.getState().bookmarks).toEqual(mockBookmarks)
+    it('should set user', () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test' }
+      useStore.getState().setUser(mockUser)
+      expect(useStore.getState().user).toEqual(mockUser)
     })
 
-    it('should set folders', () => {
-      const mockFolders = [{ id: '1', name: 'Test Folder', parentId: null, order: 0, children: [] }]
-      useStore.getState().setFolders(mockFolders)
-      expect(useStore.getState().folders).toEqual(mockFolders)
+    it('should clear user', () => {
+      useStore.getState().setUser({ id: 'user-1', email: 'test@example.com', name: null })
+      useStore.getState().setUser(null)
+      expect(useStore.getState().user).toBeNull()
     })
 
-    it('should set tags', () => {
-      const mockTags = [{ id: '1', name: 'Test Tag' }]
-      useStore.getState().setTags(mockTags)
-      expect(useStore.getState().tags).toEqual(mockTags)
+    it('should set selected workspace ID', () => {
+      useStore.getState().setSelectedWorkspaceId('ws-1')
+      expect(useStore.getState().selectedWorkspaceId).toBe('ws-1')
     })
 
     it('should set selected folder ID', () => {
@@ -103,11 +89,6 @@ describe('Store', () => {
     it('should set show archived', () => {
       useStore.getState().setShowArchived(true)
       expect(useStore.getState().showArchived).toBe(true)
-    })
-
-    it('should set is loading', () => {
-      useStore.getState().setIsLoading(true)
-      expect(useStore.getState().isLoading).toBe(true)
     })
   })
 

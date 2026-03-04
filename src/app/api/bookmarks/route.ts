@@ -1,15 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getAuthUser } from '@/lib/auth'
+import { checkRateLimit, getRateLimitIdentifier, writeLimitConfig } from '@/lib/rateLimit'
 import { sanitizeSearchQuery, createBookmarkSchema } from '@/lib/schemas'
 
 // GET /api/bookmarks - List bookmarks with filters
 export async function GET(request: NextRequest) {
+  const user = await getAuthUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const { searchParams } = new URL(request.url)
   const q = searchParams.get('q')
   const folderId = searchParams.get('folder')
   const tagId = searchParams.get('tag')
   const archived = searchParams.get('archived') === 'true'
-  const workspaceId = searchParams.get('workspaceId') || 'default'
+  const workspaceId = searchParams.get('workspaceId')
+  const cursor = searchParams.get('cursor') || undefined
+  const limitParam = searchParams.get('limit')
+  const limit = Math.min(Math.max(parseInt(limitParam ?? '20', 10) || 20, 1), 100)
+
+  if (!workspaceId) {
+    return NextResponse.json({ error: 'Workspace ID is required' }, { status: 400 })
+  }
+
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: workspaceId },
+  })
+
+  if (!workspace || workspace.userId !== user.id) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   // Sanitize search query
   const sanitizedQ = q ? sanitizeSearchQuery(q) : undefined
@@ -31,10 +53,18 @@ export async function GET(request: NextRequest) {
     }
 
     if (sanitizedQ) {
+      // FTS via GIN index on searchVector (title + description)
+      const ftsResults = await prisma.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "Bookmark"
+        WHERE "workspaceId" = ${workspaceId}
+          AND "searchVector" @@ websearch_to_tsquery('english', ${sanitizedQ})
+      `
+      const ftsIds = ftsResults.map((r) => r.id)
+
+      // Combine: FTS matches OR URL contains match
       where.OR = [
-        { title: { contains: sanitizedQ } },
-        { description: { contains: sanitizedQ } },
-        { urls: { some: { url: { contains: sanitizedQ } } } }
+        ...(ftsIds.length > 0 ? [{ id: { in: ftsIds } }] : []),
+        { urls: { some: { url: { contains: sanitizedQ } } } },
       ]
     }
 
@@ -48,9 +78,15 @@ export async function GET(request: NextRequest) {
         folder: true,
       },
       orderBy: { updatedAt: 'desc' },
+      take: limit + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     })
 
-    return NextResponse.json(bookmarks)
+    const hasNextPage = bookmarks.length > limit
+    const items = hasNextPage ? bookmarks.slice(0, limit) : bookmarks
+    const nextCursor = hasNextPage ? items[items.length - 1].id : null
+
+    return NextResponse.json({ items, nextCursor })
   } catch (error) {
     console.error('Error fetching bookmarks:', error)
     return NextResponse.json({ error: 'Failed to fetch bookmarks' }, { status: 500 })
@@ -59,6 +95,23 @@ export async function GET(request: NextRequest) {
 
 // POST /api/bookmarks - Create a new bookmark
 export async function POST(request: NextRequest) {
+  const user = await getAuthUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const identifier = `write:${getRateLimitIdentifier(request)}`
+  const rateLimit = checkRateLimit(identifier, writeLimitConfig)
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please slow down.' },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': Math.ceil((rateLimit.resetTime - Date.now()) / 1000).toString(),
+        },
+      }
+    )
+  }
+
   try {
     const body = await request.json()
     
@@ -73,29 +126,13 @@ export async function POST(request: NextRequest) {
 
     const { title, description, folderId, tags, urls, workspaceId = 'default' } = validation.data
 
-    // Ensure workspace exists
-    let workspace = await prisma.workspace.findUnique({
+    // Verify workspace belongs to the authenticated user
+    const workspace = await prisma.workspace.findUnique({
       where: { id: workspaceId },
     })
 
-    if (!workspace) {
-      // Create default workspace with a default user if it doesn't exist
-      let user = await prisma.user.findFirst()
-      if (!user) {
-        user = await prisma.user.create({
-          data: {
-            email: 'default@bookmark-manager.local',
-            passwordHash: 'placeholder',
-          },
-        })
-      }
-      workspace = await prisma.workspace.create({
-        data: {
-          id: workspaceId,
-          name: 'Default Workspace',
-          userId: user.id,
-        },
-      })
+    if (!workspace || workspace.userId !== user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     // Validate folderId if provided
