@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search,
@@ -9,53 +9,72 @@ import {
   Archive,
   Loader2,
   Bookmark,
-  Pencil,
-  Trash2,
-  FolderPlus,
   ArchiveRestore,
   ArchiveX,
   LogOut,
   Sparkles,
+  FolderPlus,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { useDebounce } from "@/lib/useDebounce";
 import { useStore } from "@/lib/store";
 import { Bookmark as BookmarkType } from "@/lib/types";
 import { FolderTree } from "@/features/folders";
-import { BookmarkCard } from "@/features/bookmarks";
-import { BookmarkForm } from "@/features/bookmarks";
+import { BookmarkCard, BookmarkForm } from "@/features/bookmarks";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { WorkspaceSwitcher } from "@/features/workspaces";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-
-const API_BASE = "/api";
+import { useBookmarks } from "@/features/bookmarks/hooks";
+import { useFolders } from "@/features/folders/hooks";
+import { useTags } from "@/features/tags/hooks";
 
 export default function Home() {
   const router = useRouter();
-  const {
-    bookmarks,
-    setBookmarks,
-    folders,
-    setFolders,
-    tags,
-    setTags,
-    selectedFolderId,
+  const { 
+    selectedFolderId, 
     setSelectedFolderId,
-    selectedTagId,
+    selectedTagId, 
     setSelectedTagId,
     searchQuery,
     setSearchQuery,
+    showArchived,
+    setShowArchived,
   } = useStore();
 
-  const debouncedSearch = useDebounce(searchQuery, 300);
+  const {
+    bookmarks,
+    isLoading,
+    initialLoad,
+    fetchBookmarks,
+    createBookmark,
+    updateBookmark,
+    archiveBookmark,
+    restoreBookmark,
+    moveToFolder,
+    toggleTag,
+  } = useBookmarks();
 
-  const { showArchived, setShowArchived, isLoading, setIsLoading } = useStore();
+  const {
+    folders,
+    fetchFolders,
+    createFolder,
+    updateFolder,
+    deleteFolder,
+  } = useFolders();
 
-  const [initialLoad, setInitialLoad] = useState(true);
+  const {
+    tags,
+    fetchTags,
+    createTag,
+    deleteTag,
+  } = useTags();
+
+  const [initialAuth, setInitialAuth] = useState(true);
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     type: "archive" | "restore";
@@ -64,12 +83,9 @@ export default function Home() {
   }>({ isOpen: false, type: "archive", bookmarkId: "", bookmarkTitle: "" });
 
   const [showForm, setShowForm] = useState(false);
-  const [editingBookmark, setEditingBookmark] = useState<BookmarkType | null>(
-    null,
-  );
+  const [editingBookmark, setEditingBookmark] = useState<BookmarkType | null>(null);
   const [newTagName, setNewTagName] = useState("");
   const [isCreatingTag, setIsCreatingTag] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -84,13 +100,18 @@ export default function Home() {
           router.push("/login");
           return;
         }
-        setIsAuthenticated(true);
+        setInitialAuth(false);
       } catch {
         router.push("/login");
       }
     };
     checkAuth();
   }, [router]);
+
+  useEffect(() => {
+    fetchFolders();
+    fetchTags();
+  }, [fetchFolders, fetchTags]);
 
   const handleLogout = async () => {
     try {
@@ -102,152 +123,62 @@ export default function Home() {
     }
   };
 
-  const fetchBookmarks = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (debouncedSearch) params.set("q", debouncedSearch);
-      if (selectedFolderId) params.set("folder", selectedFolderId);
-      if (selectedTagId) params.set("tag", selectedTagId);
-      if (showArchived) params.set("archived", "true");
-
-      const res = await fetch(`${API_BASE}/bookmarks?${params}`);
-      if (res.ok) setBookmarks(await res.json());
-    } catch (error) {
-      console.error("Error fetching bookmarks:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [
-    selectedFolderId,
-    selectedTagId,
-    showArchived,
-    setBookmarks,
-    setIsLoading,
-    debouncedSearch,
-  ]);
-
-  const fetchFolders = useCallback(async () => {
-    const res = await fetch(`${API_BASE}/folders`);
-    if (res.ok) setFolders(await res.json());
-  }, [setFolders]);
-
-  const fetchTags = useCallback(async () => {
-    const res = await fetch(`${API_BASE}/tags`);
-    if (res.ok) setTags(await res.json());
-  }, [setTags]);
-
-  useEffect(() => {
-    fetchBookmarks().then(() => setInitialLoad(false));
-  }, [fetchBookmarks]);
-  useEffect(() => {
-    fetchFolders();
-    fetchTags();
-  }, [fetchFolders, fetchTags]);
-
   const handleCreateFolder = async (name: string, parentId?: string) => {
-    const res = await fetch(`${API_BASE}/folders`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, parentId }),
-    });
-    if (res.ok) {
+    const res = await createFolder(name, parentId);
+    if (res?.ok) {
       toast.success("Folder created", {
         description: `"${name}" has been added.`,
         icon: <FolderPlus className="w-4 h-4" />,
       });
-      fetchFolders();
+    }
+  };
+
+  const handleUpdateFolder = async (id: string, name: string) => {
+    const res = await updateFolder(id, name);
+    if (res?.ok) {
+      toast.success("Folder renamed", {
+        description: `"${name}" has been updated.`,
+        icon: <Pencil className="w-4 h-4" />,
+      });
+    }
+  };
+
+  const handleDeleteFolder = async (id: string) => {
+    const folder = folders.find((f) => f.id === id);
+    if (!confirm("Delete this folder? Bookmarks will be moved to root.")) return;
+    const res = await deleteFolder(id);
+    if (res?.ok) {
+      toast.error("Folder deleted", {
+        description: `"${folder?.name}" has been removed.`,
+        icon: <Trash2 className="w-4 h-4" />,
+      });
     }
   };
 
   const handleCreateTag = async () => {
     if (!newTagName.trim()) return;
     const tagName = newTagName.trim();
-    const res = await fetch(`${API_BASE}/tags`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: tagName }),
-    });
-    if (res.ok) {
+    const res = await createTag(tagName);
+    if (res?.ok) {
       toast.success("Tag created", {
         description: `"${tagName}" has been added.`,
         icon: <Tag className="w-4 h-4" />,
       });
       setNewTagName("");
       setIsCreatingTag(false);
-      fetchTags();
     }
   };
 
   const handleDeleteTag = async (id: string) => {
     const tag = tags.find((t) => t.id === id);
     if (!confirm("Delete this tag?")) return;
-    const res = await fetch(`${API_BASE}/tags?id=${id}`, { method: "DELETE" });
-    if (res.ok) {
+    const res = await deleteTag(id);
+    if (res?.ok) {
       toast.error("Tag deleted", {
         description: `"${tag?.name}" has been removed.`,
         icon: <Trash2 className="w-4 h-4" />,
       });
-      fetchTags();
     }
-  };
-
-  const handleUpdateFolder = async (id: string, name: string) => {
-    const res = await fetch(`${API_BASE}/folders`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, name }),
-    });
-    if (res.ok) {
-      toast.success("Folder renamed", {
-        description: `"${name}" has been updated.`,
-        icon: <Pencil className="w-4 h-4" />,
-      });
-      fetchFolders();
-    }
-  };
-
-  const handleDeleteFolder = async (id: string) => {
-    const folder = folders.find((f) => f.id === id);
-    if (!confirm("Delete this folder? Bookmarks will be moved to root."))
-      return;
-    const res = await fetch(`${API_BASE}/folders?id=${id}`, {
-      method: "DELETE",
-    });
-    if (res.ok) {
-      toast.error("Folder deleted", {
-        description: `"${folder?.name}" has been removed.`,
-        icon: <Trash2 className="w-4 h-4" />,
-      });
-      fetchFolders();
-    }
-  };
-
-  const handleMoveFolder = async (bookmarkId: string, folderId: string) => {
-    const res = await fetch(`${API_BASE}/bookmarks/${bookmarkId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ folderId: folderId || null }),
-    });
-    if (res.ok) fetchBookmarks();
-  };
-
-  const handleToggleTag = async (bookmarkId: string, tagId: string) => {
-    const bookmark = bookmarks.find((b) => b.id === bookmarkId);
-    if (!bookmark) return;
-
-    const hasTag = bookmark.tags.some((t) => t.tag.id === tagId);
-    const currentTagIds = bookmark.tags.map((t) => t.tag.id);
-    const newTagIds = hasTag
-      ? currentTagIds.filter((id) => id !== tagId)
-      : [...currentTagIds, tagId];
-
-    const res = await fetch(`${API_BASE}/bookmarks/${bookmarkId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tags: newTagIds }),
-    });
-    if (res.ok) fetchBookmarks();
   };
 
   const handleSubmitBookmark = async (data: {
@@ -257,25 +188,22 @@ export default function Home() {
     urls: { url: string; isPrimary: boolean; label?: string }[];
     tags: string[];
   }) => {
-    const url = editingBookmark
-      ? `${API_BASE}/bookmarks/${editingBookmark.id}`
-      : `${API_BASE}/bookmarks`;
-    const method = editingBookmark ? "PUT" : "POST";
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (res.ok) {
-      toast.success(editingBookmark ? "Bookmark updated" : "Bookmark created", {
-        description: editingBookmark
+    const isEditing = !!editingBookmark;
+    let res;
+    if (isEditing) {
+      res = await updateBookmark(editingBookmark.id, data);
+    } else {
+      res = await createBookmark(data);
+    }
+    if (res?.ok) {
+      toast.success(isEditing ? "Bookmark updated" : "Bookmark created", {
+        description: isEditing
           ? `"${data.title}" has been updated.`
           : `"${data.title}" has been added.`,
         icon: <Sparkles className="w-4 h-4" />,
       });
       setShowForm(false);
       setEditingBookmark(null);
-      fetchBookmarks();
     }
   };
 
@@ -301,47 +229,35 @@ export default function Home() {
 
   const handleConfirmModal = async () => {
     const { type, bookmarkId } = confirmModal;
+    let res;
     if (type === "archive") {
-      const res = await fetch(`${API_BASE}/bookmarks/${bookmarkId}`, {
-        method: "DELETE",
-      });
-      if (res.ok) {
+      res = await archiveBookmark(bookmarkId);
+      if (res?.ok) {
         toast.error("Bookmark archived", {
           description: `"${confirmModal.bookmarkTitle}" has been archived.`,
           icon: <Archive className="w-4 h-4" />,
         });
-        fetchBookmarks();
       }
     } else {
-      const res = await fetch(`${API_BASE}/bookmarks/${bookmarkId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ archived: false }),
-      });
-      if (res.ok) {
+      res = await restoreBookmark(bookmarkId);
+      if (res?.ok) {
         toast.success("Bookmark restored", {
           description: `"${confirmModal.bookmarkTitle}" has been restored.`,
           icon: <ArchiveRestore className="w-4 h-4" />,
         });
-        fetchBookmarks();
       }
     }
-    setConfirmModal({
-      isOpen: false,
-      type: "archive",
-      bookmarkId: "",
-      bookmarkTitle: "",
-    });
+    setConfirmModal({ isOpen: false, type: "archive", bookmarkId: "", bookmarkTitle: "" });
   };
 
-  if (initialLoad || isAuthenticated === null) return <LoadingScreen />;
+  if (initialLoad || initialAuth) return <LoadingScreen />;
 
   return (
     <div className="flex h-screen bg-background">
       <aside className="w-72 bg-card border-r border-border flex flex-col">
         <div className="p-6 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-linear-to-br from-primary to-ring rounded-xl flex items-center justify-center shadow-md">
+            <div className="w-10 h-10 bg-gradient-to-br from-primary to-ring rounded-xl flex items-center justify-center shadow-md">
               <Bookmark className="w-5 h-5 text-primary-foreground" />
             </div>
             <div>
@@ -370,11 +286,7 @@ export default function Home() {
           <div className="p-4 border-t border-border">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-medium text-sm text-foreground">Tags</h3>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                onClick={() => setIsCreatingTag(true)}
-              >
+              <Button variant="ghost" size="icon-xs" onClick={() => setIsCreatingTag(true)}>
                 <Plus className="w-3.5 h-3.5" />
               </Button>
             </div>
@@ -392,9 +304,7 @@ export default function Home() {
                   className="h-8 text-sm"
                   autoFocus
                 />
-                <Button size="sm" onClick={handleCreateTag}>
-                  Add
-                </Button>
+                <Button size="sm" onClick={handleCreateTag}>Add</Button>
               </div>
             )}
             <div className="flex flex-wrap gap-2">
@@ -403,9 +313,7 @@ export default function Home() {
                   <Badge
                     variant={selectedTagId === tag.id ? "default" : "secondary"}
                     className="cursor-pointer"
-                    onClick={() =>
-                      setSelectedTagId(selectedTagId === tag.id ? null : tag.id)
-                    }
+                    onClick={() => setSelectedTagId(selectedTagId === tag.id ? null : tag.id)}
                   >
                     {tag.name}
                   </Badge>
@@ -426,16 +334,10 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Sidebar Footer */}
         <div className="p-4 border-t border-border space-y-2">
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLogout}
-              className="flex-1 justify-start text-muted-foreground hover:text-destructive"
-            >
+            <Button variant="ghost" size="sm" onClick={handleLogout} className="flex-1 justify-start text-muted-foreground hover:text-destructive">
               <LogOut className="w-4 h-4 mr-2" />
               Logout
             </Button>
@@ -462,18 +364,12 @@ export default function Home() {
               size="sm"
               onClick={() => setShowArchived(!showArchived)}
             >
-              {showArchived ? (
-                <ArchiveX className="w-4 h-4 mr-2" />
-              ) : (
-                <Archive className="w-4 h-4 mr-2" />
-              )}
-              <span className="hidden sm:inline">
-                {showArchived ? "Active" : "Archived"}
-              </span>
+              {showArchived ? <ArchiveX className="w-4 h-4 mr-2" /> : <Archive className="w-4 h-4 mr-2" />}
+              <span className="hidden sm:inline">{showArchived ? "Active" : "Archived"}</span>
             </Button>
 
             <Button
-              className="bg-linear-to-r from-primary to-ring hover:opacity-90"
+              className="bg-gradient-to-r from-primary to-ring hover:opacity-90"
               size="sm"
               onClick={() => {
                 setEditingBookmark(null);
@@ -496,17 +392,13 @@ export default function Home() {
             </div>
           ) : bookmarks.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full">
-              <div className="w-24 h-24 bg-linear-to-br from-accent to-secondary rounded-3xl flex items-center justify-center mb-6 shadow-lg">
+              <div className="w-24 h-24 bg-gradient-to-br from-accent to-secondary rounded-3xl flex items-center justify-center mb-6 shadow-lg">
                 <Tag className="w-12 h-12 text-muted-foreground" />
               </div>
-              <p className="text-xl font-semibold text-foreground mb-2">
-                No bookmarks yet
-              </p>
-              <p className="text-sm text-muted-foreground mb-6">
-                Start building your collection
-              </p>
+              <p className="text-xl font-semibold text-foreground mb-2">No bookmarks yet</p>
+              <p className="text-sm text-muted-foreground mb-6">Start building your collection</p>
               <Button
-                className="bg-linear-to-r from-primary to-ring hover:opacity-90"
+                className="bg-gradient-to-r from-primary to-ring hover:opacity-90"
                 onClick={() => {
                   setEditingBookmark(null);
                   setShowForm(true);
@@ -530,8 +422,8 @@ export default function Home() {
                   }}
                   onDelete={handleDeleteBookmark}
                   onRestore={handleRestoreBookmark}
-                  onMoveFolder={handleMoveFolder}
-                  onToggleTag={handleToggleTag}
+                  onMoveFolder={moveToFolder}
+                  onToggleTag={toggleTag}
                 />
               ))}
             </div>
@@ -556,11 +448,7 @@ export default function Home() {
 
       <ConfirmModal
         open={confirmModal.isOpen}
-        title={
-          confirmModal.type === "archive"
-            ? "Archive bookmark?"
-            : "Restore bookmark?"
-        }
+        title={confirmModal.type === "archive" ? "Archive bookmark?" : "Restore bookmark?"}
         message={
           confirmModal.type === "archive"
             ? `Are you sure you want to archive "${confirmModal.bookmarkTitle}"? You can restore it later from the archived view.`
@@ -570,14 +458,7 @@ export default function Home() {
         variant={confirmModal.type === "archive" ? "danger" : "success"}
         icon={confirmModal.type === "archive" ? "archive" : "restore"}
         onConfirm={handleConfirmModal}
-        onCancel={() =>
-          setConfirmModal({
-            isOpen: false,
-            type: "archive",
-            bookmarkId: "",
-            bookmarkTitle: "",
-          })
-        }
+        onCancel={() => setConfirmModal({ isOpen: false, type: "archive", bookmarkId: "", bookmarkTitle: "" })}
       />
     </div>
   );
