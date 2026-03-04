@@ -1,8 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { Bookmark, Folder, Tag } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface BookmarkFormProps {
   bookmark?: Bookmark | null;
@@ -32,7 +43,6 @@ export function BookmarkForm({
   const [urls, setUrls] = useState<
     { url: string; isPrimary: boolean; label: string }[]
   >([]);
-  // Tags are optional - only existing tags can be added
 
   useEffect(() => {
     if (bookmark) {
@@ -114,58 +124,44 @@ export function BookmarkForm({
   const flatFolders = flattenFolders(folders);
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
-        <div className="flex items-center justify-between p-6 border-b border-border">
-          <h2 className="text-xl font-semibold text-foreground">
+    <Dialog open onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
             {bookmark ? "Edit Bookmark" : "New Bookmark"}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-secondary rounded-xl transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        <form
-          onSubmit={handleSubmit}
-          className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-80px)]"
-        >
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Title *
-            </label>
-            <input
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="title">Title *</Label>
+            <Input
+              id="title"
               type="text"
+              placeholder="Enter bookmark title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-4 py-3 bg-background text-foreground placeholder:text-muted-foreground rounded-xl border border-input focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-200"
-              placeholder="Enter bookmark title"
               required
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Description
-            </label>
-            <textarea
+          <div className="space-y-2">
+            <Label htmlFor="description">Description</Label>
+            <Input
+              id="description"
+              type="text"
+              placeholder="Add a description..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-4 py-3 bg-background text-foreground placeholder:text-muted-foreground rounded-xl border border-input focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-200"
-              rows={3}
-              placeholder="Add a description..."
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Folder
-            </label>
+          <div className="space-y-2">
+            <Label htmlFor="folder">Folder</Label>
             <select
+              id="folder"
               value={folderId}
               onChange={(e) => setFolderId(e.target.value)}
-              className="w-full px-4 py-3 bg-background text-foreground rounded-xl border border-input focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-200"
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             >
               <option value="">No folder</option>
               {flatFolders.map((f) => (
@@ -176,97 +172,83 @@ export function BookmarkForm({
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              URLs *
-            </label>
-            <div className="space-y-3">
-              {urls.map((url, index) => (
-                <div key={index} className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={url.isPrimary}
-                    onChange={(e) =>
-                      updateUrl(index, "isPrimary", e.target.checked)
-                    }
-                    className="w-5 h-5 rounded border-border text-primary focus:ring-ring"
-                    title="Primary URL"
-                  />
-                  <input
-                    type="url"
-                    value={url.url}
-                    onChange={(e) => updateUrl(index, "url", e.target.value)}
-                    placeholder="https://example.com"
-                    className="flex-1 px-4 py-2.5 bg-background text-foreground placeholder:text-muted-foreground rounded-lg border border-input focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-200"
-                    required={index === 0}
-                  />
-                  <input
-                    type="text"
-                    value={url.label}
-                    onChange={(e) => updateUrl(index, "label", e.target.value)}
-                    placeholder="Label"
-                    className="w-28 px-3 py-2.5 bg-background text-foreground placeholder:text-muted-foreground rounded-lg border border-input focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-200"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeUrl(index)}
-                    disabled={urls.length === 1}
-                    aria-label="Remove URL"
-                    className="p-2.5 text-muted-foreground hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <button
+          <div className="space-y-3">
+            <Label>URLs *</Label>
+            {urls.map((url, index) => (
+              <div key={index} className="flex items-center gap-3">
+                <Checkbox
+                  checked={url.isPrimary}
+                  onCheckedChange={(checked) =>
+                    updateUrl(index, "isPrimary", checked as boolean)
+                  }
+                  title="Primary URL"
+                />
+                <Input
+                  type="url"
+                  placeholder="https://example.com"
+                  value={url.url}
+                  onChange={(e) => updateUrl(index, "url", e.target.value)}
+                  className="flex-1"
+                  required={index === 0}
+                />
+                <Input
+                  type="text"
+                  placeholder="Label"
+                  value={url.label}
+                  onChange={(e) => updateUrl(index, "label", e.target.value)}
+                  className="w-28"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeUrl(index)}
+                  disabled={urls.length === 1}
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={addUrl}
-              className="mt-3 flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+              className="text-primary hover:text-primary/80"
             >
-              <Plus className="w-4 h-4" /> Add URL
-            </button>
+              <Plus className="h-4 w-4 mr-1" /> Add URL
+            </Button>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Tags
-            </label>
-            <div className="flex flex-wrap gap-2 mb-3">
+          <div className="space-y-2">
+            <Label>Tags</Label>
+            <div className="flex flex-wrap gap-2">
               {tags.map((tag) => (
-                <button
+                <Button
                   key={tag.id}
                   type="button"
+                  variant={selectedTags.includes(tag.id) ? "default" : "secondary"}
+                  size="sm"
                   onClick={() => toggleTag(tag.id)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                    selectedTags.includes(tag.id)
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-secondary-foreground hover:bg-accent"
-                  }`}
+                  className="rounded-full"
                 >
                   {tag.name}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-border">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-5 py-2.5 border border-border text-foreground rounded-xl hover:bg-secondary transition-colors font-medium"
-            >
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-5 py-2.5 bg-primary text-primary-foreground rounded-xl hover:opacity-90 transition-opacity font-medium"
-            >
+            </Button>
+            <Button type="submit">
               {bookmark ? "Update" : "Create"}
-            </button>
-          </div>
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

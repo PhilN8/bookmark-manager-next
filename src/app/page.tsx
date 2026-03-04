@@ -558,7 +558,7 @@ export default function Home() {
       <Toaster position="bottom-right" richColors />
 
       <ConfirmModal
-        isOpen={confirmModal.isOpen}
+        open={confirmModal.isOpen}
         title={
           confirmModal.type === "archive"
             ? "Archive bookmark?"
