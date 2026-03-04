@@ -42,15 +42,12 @@ jest.mock("@/components/ThemeToggle", () => ({
   ThemeToggle: () => <div data-testid="theme-toggle" />,
 }));
 
-jest.mock("@/components/FolderSidebar", () => ({
+jest.mock("@/features/folders", () => ({
   FolderTree: () => <div data-testid="folder-tree" />,
 }));
 
-jest.mock("@/components/BookmarkCard", () => ({
+jest.mock("@/features/bookmarks", () => ({
   BookmarkCard: () => <div data-testid="bookmark-card" />,
-}));
-
-jest.mock("@/components/BookmarkForm", () => ({
   BookmarkForm: () => <div data-testid="bookmark-form" />,
 }));
 
@@ -58,7 +55,7 @@ jest.mock("@/components/LoadingScreen", () => ({
   LoadingScreen: () => <div data-testid="loading-screen" />,
 }));
 
-jest.mock("@/components/WorkspaceSwitcher", () => ({
+jest.mock("@/features/workspaces", () => ({
   WorkspaceSwitcher: () => <div data-testid="workspace-switcher" />,
 }));
 

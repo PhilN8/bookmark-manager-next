@@ -341,7 +341,7 @@ export default function Home() {
       <aside className="w-72 bg-card border-r border-border flex flex-col">
         <div className="p-6 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-primary to-ring rounded-xl flex items-center justify-center shadow-md">
+            <div className="w-10 h-10 bg-linear-to-br from-primary to-ring rounded-xl flex items-center justify-center shadow-md">
               <Bookmark className="w-5 h-5 text-primary-foreground" />
             </div>
             <div>
@@ -473,7 +473,7 @@ export default function Home() {
             </Button>
 
             <Button
-              className="bg-gradient-to-r from-primary to-ring hover:opacity-90"
+              className="bg-linear-to-r from-primary to-ring hover:opacity-90"
               size="sm"
               onClick={() => {
                 setEditingBookmark(null);
@@ -496,7 +496,7 @@ export default function Home() {
             </div>
           ) : bookmarks.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full">
-              <div className="w-24 h-24 bg-gradient-to-br from-accent to-secondary rounded-3xl flex items-center justify-center mb-6 shadow-lg">
+              <div className="w-24 h-24 bg-linear-to-br from-accent to-secondary rounded-3xl flex items-center justify-center mb-6 shadow-lg">
                 <Tag className="w-12 h-12 text-muted-foreground" />
               </div>
               <p className="text-xl font-semibold text-foreground mb-2">
@@ -506,7 +506,7 @@ export default function Home() {
                 Start building your collection
               </p>
               <Button
-                className="bg-gradient-to-r from-primary to-ring hover:opacity-90"
+                className="bg-linear-to-r from-primary to-ring hover:opacity-90"
                 onClick={() => {
                   setEditingBookmark(null);
                   setShowForm(true);

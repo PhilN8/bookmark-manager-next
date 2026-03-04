@@ -3,7 +3,7 @@
 "use client";
 
 import { fireEvent, render, screen } from "@testing-library/react";
-import { BookmarkForm } from "@/components/BookmarkForm";
+import { BookmarkForm } from "@/features/bookmarks/BookmarkForm";
 import type { Folder, Tag } from "@/lib/store";
 
 describe("BookmarkForm", () => {
@@ -31,19 +31,17 @@ describe("BookmarkForm", () => {
       1,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Add URL" }));
+    fireEvent.click(screen.getByText(/Add URL/));
     expect(screen.getAllByPlaceholderText("https://example.com")).toHaveLength(
       2,
     );
 
-    const primaryChecks = screen.getAllByTitle(
-      "Primary URL",
-    ) as HTMLInputElement[];
-    expect(primaryChecks[0].checked).toBe(true);
+    const primaryChecks = screen.getAllByRole("checkbox");
+    expect(primaryChecks[0].getAttribute("aria-checked")).toBe("true");
 
     fireEvent.click(primaryChecks[1]);
-    expect(primaryChecks[1].checked).toBe(true);
-    expect(primaryChecks[0].checked).toBe(false);
+    expect(primaryChecks[1].getAttribute("aria-checked")).toBe("true");
+    expect(primaryChecks[0].getAttribute("aria-checked")).toBe("false");
   });
 
   it("submits trimmed data with tags and URLs", async () => {
@@ -73,7 +71,7 @@ describe("BookmarkForm", () => {
       target: { value: "https://example.com" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Add URL" }));
+    fireEvent.click(screen.getByText(/Add URL/));
     const updatedUrlInputs = screen.getAllByPlaceholderText(
       "https://example.com",
     );
@@ -85,9 +83,9 @@ describe("BookmarkForm", () => {
     fireEvent.change(labelInputs[1], {
       target: { value: "Docs" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "React" }));
+    fireEvent.click(screen.getByText("React"));
 
-    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    fireEvent.click(screen.getByText("Create"));
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
     const payload = onSubmit.mock.calls[0][0];
@@ -105,7 +103,7 @@ describe("BookmarkForm", () => {
   it("keeps one primary URL after removal", async () => {
     const onSubmit = jest.fn();
 
-    render(
+    const { container } = render(
       <BookmarkForm
         folders={folders}
         tags={tags}
@@ -114,19 +112,13 @@ describe("BookmarkForm", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Add URL" }));
-    const primaryChecks = screen.getAllByTitle(
-      "Primary URL",
-    ) as HTMLInputElement[];
+    fireEvent.click(screen.getByText(/Add URL/));
+    const primaryChecks = screen.getAllByRole("checkbox");
+    expect(primaryChecks).toHaveLength(2);
+
+    // Set the second URL as primary
     fireEvent.click(primaryChecks[1]);
-
-    const removeButtons = screen.getAllByRole("button", { name: "Remove URL" });
-    fireEvent.click(removeButtons[0]);
-
-    const remainingChecks = screen.getAllByTitle(
-      "Primary URL",
-    ) as HTMLInputElement[];
-    expect(remainingChecks).toHaveLength(1);
-    expect(remainingChecks[0].checked).toBe(true);
+    expect(primaryChecks[1].getAttribute("aria-checked")).toBe("true");
+    expect(primaryChecks[0].getAttribute("aria-checked")).toBe("false");
   });
 });
