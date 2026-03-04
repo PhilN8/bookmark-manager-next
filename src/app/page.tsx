@@ -15,6 +15,7 @@ import {
   ArchiveRestore,
   ArchiveX,
   LogOut,
+  Sparkles,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -270,7 +271,7 @@ export default function Home() {
         description: editingBookmark
           ? `"${data.title}" has been updated.`
           : `"${data.title}" has been added.`,
-        icon: <Tag className="w-4 h-4" />,
+        icon: <Sparkles className="w-4 h-4" />,
       });
       setShowForm(false);
       setEditingBookmark(null);
@@ -340,11 +341,11 @@ export default function Home() {
       <aside className="w-72 bg-card border-r border-border flex flex-col">
         <div className="p-6 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-gradient-to-br from-primary to-ring rounded-xl flex items-center justify-center shadow-md">
               <Bookmark className="w-5 h-5 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-foreground">Pearl</h1>
+              <h1 className="text-lg font-bold text-foreground">Pearl</h1>
               <p className="text-xs text-muted-foreground">Bookmark Manager</p>
             </div>
           </div>
@@ -424,6 +425,22 @@ export default function Home() {
             </div>
           </div>
         </div>
+
+        {/* Sidebar Footer */}
+        <div className="p-4 border-t border-border space-y-2">
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              className="flex-1 justify-start text-muted-foreground hover:text-destructive"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
+          </div>
+        </div>
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden">
@@ -440,25 +457,23 @@ export default function Home() {
               />
             </div>
 
-            <ThemeToggle />
-
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Logout</span>
-            </Button>
-
             <Button
-              variant={showArchived ? "secondary" : "ghost"}
+              variant={showArchived ? "secondary" : "outline"}
               size="sm"
               onClick={() => setShowArchived(!showArchived)}
             >
-              {showArchived ? <ArchiveX className="w-4 h-4 mr-2" /> : <Archive className="w-4 h-4 mr-2" />}
+              {showArchived ? (
+                <ArchiveX className="w-4 h-4 mr-2" />
+              ) : (
+                <Archive className="w-4 h-4 mr-2" />
+              )}
               <span className="hidden sm:inline">
                 {showArchived ? "Active" : "Archived"}
               </span>
             </Button>
 
             <Button
+              className="bg-gradient-to-r from-primary to-ring hover:opacity-90"
               size="sm"
               onClick={() => {
                 setEditingBookmark(null);
@@ -481,16 +496,17 @@ export default function Home() {
             </div>
           ) : bookmarks.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full">
-              <div className="w-20 h-20 bg-secondary rounded-2xl flex items-center justify-center mb-4">
-                <Tag className="w-10 h-10 text-muted-foreground" />
+              <div className="w-24 h-24 bg-gradient-to-br from-accent to-secondary rounded-3xl flex items-center justify-center mb-6 shadow-lg">
+                <Tag className="w-12 h-12 text-muted-foreground" />
               </div>
-              <p className="text-lg font-medium text-foreground mb-2">
+              <p className="text-xl font-semibold text-foreground mb-2">
                 No bookmarks yet
               </p>
-              <p className="text-sm text-muted-foreground mb-4">
+              <p className="text-sm text-muted-foreground mb-6">
                 Start building your collection
               </p>
               <Button
+                className="bg-gradient-to-r from-primary to-ring hover:opacity-90"
                 onClick={() => {
                   setEditingBookmark(null);
                   setShowForm(true);
