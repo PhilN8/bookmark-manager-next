@@ -5,6 +5,7 @@ import {
   updateFolderSchema,
   createTagSchema,
   sanitizeSearchQuery,
+  sanitizeUrlQuery,
 } from '@/lib/schemas'
 
 describe('Zod Schemas', () => {
@@ -322,6 +323,32 @@ describe('Zod Schemas', () => {
 
     it('should handle mixed tsquery-hostile input', () => {
       expect(sanitizeSearchQuery('react:hooks OR next:js')).toBe('reacthooks OR nextjs')
+    })
+  })
+
+  describe('sanitizeUrlQuery', () => {
+    it('should return empty string for empty input', () => {
+      expect(sanitizeUrlQuery('')).toBe('')
+    })
+
+    it('should preserve colons so URL searches work', () => {
+      expect(sanitizeUrlQuery('https://example.com')).toBe('https://example.com')
+    })
+
+    it('should still strip SQL injection patterns', () => {
+      expect(sanitizeUrlQuery("'; DROP TABLE users;--")).toBe('DROP TABLE users')
+    })
+
+    it('should strip comment patterns', () => {
+      expect(sanitizeUrlQuery('test /* comment */ -- more')).toBe('test  comment   more')
+    })
+
+    it('should trim whitespace', () => {
+      expect(sanitizeUrlQuery('  react.dev  ')).toBe('react.dev')
+    })
+
+    it('should preserve a realistic URL search term', () => {
+      expect(sanitizeUrlQuery('https://react.dev/hooks')).toBe('https://react.dev/hooks')
     })
   })
 })

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/auth'
 import { checkRateLimit, getRateLimitIdentifier, writeLimitConfig } from '@/lib/rateLimit'
-import { sanitizeSearchQuery, createBookmarkSchema } from '@/lib/schemas'
+import { sanitizeSearchQuery, sanitizeUrlQuery, createBookmarkSchema } from '@/lib/schemas'
 
 // GET /api/bookmarks - List bookmarks with filters
 export async function GET(request: NextRequest) {
@@ -35,6 +35,8 @@ export async function GET(request: NextRequest) {
 
   // Sanitize search query
   const sanitizedQ = q ? sanitizeSearchQuery(q) : undefined
+  // Preserve colons for URL substring matching (e.g. "https://example.com")
+  const sanitizedUrlQ = q ? sanitizeUrlQuery(q) : undefined
 
   try {
     const where: Record<string, unknown> = {
@@ -53,18 +55,20 @@ export async function GET(request: NextRequest) {
     }
 
     if (sanitizedQ) {
-      // FTS via GIN index on searchVector (title + description)
+      // FTS via GIN index on searchVector (title + description).
+      // Include the archived filter so we don't pull back IDs from the wrong view.
       const ftsResults = await prisma.$queryRaw<{ id: string }[]>`
         SELECT id FROM "Bookmark"
         WHERE "workspaceId" = ${workspaceId}
+          AND "archived" = ${archived}
           AND "searchVector" @@ websearch_to_tsquery('english', ${sanitizedQ})
       `
       const ftsIds = ftsResults.map((r) => r.id)
 
-      // Combine: FTS matches OR URL contains match
+      // Combine: FTS matches (title/description) OR case-insensitive URL substring match.
       where.OR = [
         ...(ftsIds.length > 0 ? [{ id: { in: ftsIds } }] : []),
-        { urls: { some: { url: { contains: sanitizedQ } } } },
+        { urls: { some: { url: { contains: sanitizedUrlQ, mode: 'insensitive' as const } } } },
       ]
     }
 

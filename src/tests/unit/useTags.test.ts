@@ -94,9 +94,9 @@ describe("useTags", () => {
 
     const { result } = renderHook(() => useTags(), { wrapper: createWrapper() });
 
-    result.current.createTag.mutate("CSS");
+    result.current.createTag("CSS");
 
-    await waitFor(() => expect(result.current.createTag.isSuccess).toBe(true));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
 
     const postCall = (global.fetch as jest.Mock).mock.calls.find(
       ([, init]) => init?.method === "POST",
@@ -118,13 +118,13 @@ describe("useTags", () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    result.current.deleteTag.mutate("tag-1");
+    result.current.deleteTag("tag-1");
 
-    await waitFor(() => expect(result.current.deleteTag.isIdle).toBe(false));
-
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining("/api/tags?id=tag-1"),
-      expect.objectContaining({ method: "DELETE" }),
-    );
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/api/tags?id=tag-1"),
+        expect.objectContaining({ method: "DELETE" }),
+      );
+    });
   });
 });

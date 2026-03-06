@@ -62,14 +62,26 @@ export const registerSchema = z.object({
   path: ["confirmPassword"],
 });
 
-// Sanitize search query - prevent injection and tsquery syntax errors
-export function sanitizeSearchQuery(query: string): string {
+// Shared sanitization: strip characters that are dangerous in SQL contexts.
+// Safe to apply to both the FTS path and the URL-contains path.
+function sanitizeBase(query: string): string {
   return query
     .replace(/['";\\]/g, '')
     .replace(/--/g, '')
     .replace(/#/g, '')
     .replace(/\/\*/g, '')
     .replace(/\*\//g, '')
-    .replace(/:/g, '')   // colon causes invalid tsquery syntax (e.g. "foo:bar")
     .trim()
+}
+
+// Sanitize for use with websearch_to_tsquery / plainto_tsquery.
+// Colons are stripped here because they are invalid tsquery syntax (e.g. "foo:bar").
+export function sanitizeSearchQuery(query: string): string {
+  return sanitizeBase(query).replace(/:/g, '')
+}
+
+// Sanitize for use in a URL substring match (ILIKE / contains).
+// Colons are preserved so that searching "https://example.com" works correctly.
+export function sanitizeUrlQuery(query: string): string {
+  return sanitizeBase(query)
 }

@@ -149,32 +149,45 @@ export function BookmarkForm({
 
   return (
     <Dialog open onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-border/40 shadow-2xl rounded-[2rem]">
+      <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-border/40 shadow-2xl rounded-4xl">
         <div className="relative">
           <div className="absolute top-6 right-6 z-10">
             <DialogClose asChild>
-              <Button variant="ghost" size="icon" className="rounded-full h-8 w-8 hover:bg-muted/50" onClick={onClose}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full h-8 w-8 hover:bg-muted/50"
+                onClick={onClose}
+              >
                 <X className="h-4 w-4" />
               </Button>
             </DialogClose>
           </div>
-          
+
           <div className="px-8 pt-10 pb-6">
             <DialogHeader className="space-y-1">
               <DialogTitle className="text-2xl font-bold tracking-tight">
                 {bookmark ? "Edit Bookmark" : "New Bookmark"}
               </DialogTitle>
               <p className="text-sm text-muted-foreground">
-                {bookmark ? "Update your bookmark details" : "Add a new link to your collection"}
+                {bookmark
+                  ? "Update your bookmark details"
+                  : "Add a new link to your collection"}
               </p>
             </DialogHeader>
           </div>
 
-          <form onSubmit={handleSubmit(onValidSubmit)} className="px-8 pb-10 space-y-6">
+          <form
+            onSubmit={handleSubmit(onValidSubmit)}
+            className="px-8 pb-10 space-y-6"
+          >
             <div className="space-y-5">
               {/* Title */}
               <div className="space-y-2 group">
-                <Label htmlFor="title" className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">
+                <Label
+                  htmlFor="title"
+                  className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1"
+                >
                   Title <span className="text-destructive">*</span>
                 </Label>
                 <Input
@@ -184,7 +197,8 @@ export function BookmarkForm({
                   {...register("title")}
                   className={cn(
                     "h-12 rounded-xl bg-muted/30 border-border/50 focus:bg-background transition-all",
-                    errors.title && "border-destructive/50 focus:ring-destructive/20"
+                    errors.title &&
+                      "border-destructive/50 focus:ring-destructive/20",
                   )}
                 />
                 {errors.title && (
@@ -196,7 +210,10 @@ export function BookmarkForm({
 
               {/* Description */}
               <div className="space-y-2 group">
-                <Label htmlFor="description" className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">
+                <Label
+                  htmlFor="description"
+                  className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1"
+                >
                   Description
                 </Label>
                 <Input
@@ -231,9 +248,12 @@ export function BookmarkForm({
                 <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">
                   Links <span className="text-destructive">*</span>
                 </Label>
-                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 scrollbar-thin">
+                <div className="space-y-3 max-h-75 overflow-y-auto pr-1 scrollbar-thin">
                   {fields.map((field, index) => (
-                    <div key={field.id} className="p-4 rounded-2xl bg-muted/20 border border-border/30 space-y-3 relative group/item transition-all hover:bg-muted/30">
+                    <div
+                      key={field.id}
+                      className="p-4 rounded-2xl bg-muted/20 border border-border/30 space-y-3 relative group/item transition-all hover:bg-muted/30"
+                    >
                       <div className="flex items-start gap-3">
                         <Controller
                           control={control}
@@ -256,7 +276,8 @@ export function BookmarkForm({
                             {...register(`urls.${index}.url`)}
                             className={cn(
                               "h-10 rounded-lg bg-background border-border/40 transition-all",
-                              errors.urls?.[index]?.url && "border-destructive/50"
+                              errors.urls?.[index]?.url &&
+                                "border-destructive/50",
                             )}
                           />
                           <div className="flex gap-2">
@@ -296,11 +317,15 @@ export function BookmarkForm({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() => append({ url: "", isPrimary: false, label: "" })}
+                  onClick={() =>
+                    append({ url: "", isPrimary: false, label: "" })
+                  }
                   className="w-full h-12 rounded-xl border border-dashed border-border/60 hover:border-primary/50 hover:bg-primary/5 text-muted-foreground hover:text-primary transition-all group/btn"
                 >
-                  <Plus className="h-4 w-4 mr-2 group-hover/btn:scale-110 transition-transform" /> 
-                  <span className="text-xs font-bold uppercase tracking-widest">Add another link</span>
+                  <Plus className="h-4 w-4 mr-2 group-hover/btn:scale-110 transition-transform" />
+                  <span className="text-xs font-bold uppercase tracking-widest">
+                    Add another link
+                  </span>
                 </Button>
               </div>
 
@@ -320,30 +345,32 @@ export function BookmarkForm({
                           "px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-200 border",
                           selectedTags.includes(tag.id)
                             ? "bg-primary border-primary text-primary-foreground shadow-md shadow-primary/20"
-                            : "bg-background border-border/50 text-muted-foreground hover:border-primary/30 hover:text-foreground"
+                            : "bg-background border-border/50 text-muted-foreground hover:border-primary/30 hover:text-foreground",
                         )}
                       >
                         {tag.name}
                       </button>
                     ))
                   ) : (
-                    <p className="text-xs text-muted-foreground italic ml-1">No tags available in this workspace</p>
+                    <p className="text-xs text-muted-foreground italic ml-1">
+                      No tags available in this workspace
+                    </p>
                   )}
                 </div>
               </div>
             </div>
 
             <div className="pt-6 flex gap-3">
-              <Button 
-                type="button" 
-                variant="ghost" 
-                className="flex-1 h-12 rounded-xl font-bold tracking-tight text-muted-foreground hover:text-foreground" 
+              <Button
+                type="button"
+                variant="ghost"
+                className="flex-1 h-12 rounded-xl font-bold tracking-tight text-muted-foreground hover:text-foreground"
                 onClick={onClose}
               >
                 Cancel
               </Button>
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 className="flex-2 h-12 rounded-xl bg-linear-to-r from-primary to-ring hover:opacity-90 font-bold tracking-tight shadow-md hover:shadow-lg transition-all"
               >
                 {bookmark ? "Update Bookmark" : "Save Bookmark"}

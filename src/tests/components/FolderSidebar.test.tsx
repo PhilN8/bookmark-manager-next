@@ -38,7 +38,7 @@ describe("FolderTree", () => {
     );
 
     fireEvent.click(screen.getByTitle("New folder"));
-    const input = screen.getByPlaceholderText("Folder name");
+    const input = screen.getByPlaceholderText("Folder name...");
     fireEvent.change(input, { target: { value: "Inbox" } });
     fireEvent.keyDown(input, { key: "Enter" });
 

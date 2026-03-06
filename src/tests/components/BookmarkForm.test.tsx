@@ -38,7 +38,7 @@ describe("BookmarkForm", () => {
     );
 
     await act(async () => {
-      fireEvent.click(screen.getByText(/Add URL/));
+      fireEvent.click(screen.getByText(/Add another link/i));
     });
 
     expect(screen.getAllByPlaceholderText("https://example.com")).toHaveLength(
@@ -69,10 +69,10 @@ describe("BookmarkForm", () => {
     );
 
     await act(async () => {
-      fireEvent.change(screen.getByPlaceholderText("Enter bookmark title"), {
+      fireEvent.change(screen.getByPlaceholderText("The name of this resource"), {
         target: { value: "  Example  " },
       });
-      fireEvent.change(screen.getByPlaceholderText("Add a description..."), {
+      fireEvent.change(screen.getByPlaceholderText("What's this about? (optional)"), {
         target: { value: "  Notes  " },
       });
 
@@ -86,7 +86,7 @@ describe("BookmarkForm", () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByText(/Add URL/));
+      fireEvent.click(screen.getByText(/Add another link/i));
     });
 
     await act(async () => {
@@ -97,7 +97,7 @@ describe("BookmarkForm", () => {
         target: { value: "https://second.com" },
       });
 
-      const labelInputs = screen.getAllByPlaceholderText("Label");
+      const labelInputs = screen.getAllByPlaceholderText("Add label (e.g. Documentation)");
       fireEvent.change(labelInputs[1], {
         target: { value: "Docs" },
       });
@@ -106,7 +106,7 @@ describe("BookmarkForm", () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByText("Create"));
+      fireEvent.click(screen.getByText("Save Bookmark"));
     });
 
     await waitFor(() => {
@@ -138,7 +138,7 @@ describe("BookmarkForm", () => {
     );
 
     await act(async () => {
-      fireEvent.click(screen.getByText(/Add URL/));
+      fireEvent.click(screen.getByText(/Add another link/i));
     });
 
     const primaryChecks = screen.getAllByRole("checkbox");

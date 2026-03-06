@@ -104,7 +104,7 @@ describe('GET /api/bookmarks — FTS search', () => {
     expect(idClause).toEqual({ id: { in: ['bm-1'] } })
   })
 
-  it('includes URL contains clause alongside FTS ids', async () => {
+  it('includes case-insensitive URL contains clause alongside FTS ids', async () => {
     mockQueryRaw.mockResolvedValue([{ id: 'bm-1' }])
     mockFindMany.mockResolvedValue([mockBookmark])
 
@@ -114,7 +114,9 @@ describe('GET /api/bookmarks — FTS search', () => {
     const urlClause = whereArg.OR.find(
       (c: Record<string, unknown>) => c.urls !== undefined,
     )
-    expect(urlClause).toEqual({ urls: { some: { url: { contains: 'react' } } } })
+    expect(urlClause).toEqual({
+      urls: { some: { url: { contains: 'react', mode: 'insensitive' } } },
+    })
   })
 
   it('omits id-in clause when FTS returns no results (URL-only fallback)', async () => {
@@ -148,5 +150,47 @@ describe('GET /api/bookmarks — FTS search', () => {
 
     const res = await GET(makeRequest({ workspaceId: WORKSPACE_ID, q: 'react' }))
     expect(res.status).toBe(403)
+  })
+
+  it('passes the archived flag into the FTS raw query', async () => {
+    mockQueryRaw.mockResolvedValue([])
+    mockFindMany.mockResolvedValue([])
+
+    // Search within the archived view
+    await GET(makeRequest({ workspaceId: WORKSPACE_ID, q: 'react', archived: 'true' }))
+
+    // The $queryRaw call receives a TemplateStringsArray + interpolated values.
+    // We inspect the second interpolated argument (index 1) which is the archived boolean.
+    const rawCallArgs = mockQueryRaw.mock.calls[0]
+    // rawCallArgs[0] is the TemplateStringsArray; rawCallArgs[1..n] are the interpolated values.
+    // Interpolation order in the query: workspaceId, archived, sanitizedQ
+    expect(rawCallArgs[2]).toBe(true)
+  })
+
+  it('preserves colons in the URL clause so "https://..." searches work', async () => {
+    mockQueryRaw.mockResolvedValue([])
+    mockFindMany.mockResolvedValue([mockBookmark])
+
+    await GET(makeRequest({ workspaceId: WORKSPACE_ID, q: 'https://react.dev' }))
+
+    const whereArg = mockFindMany.mock.calls[0][0].where
+    const urlClause = whereArg.OR.find(
+      (c: Record<string, unknown>) => c.urls !== undefined,
+    )
+    // Colons must be present in the URL contains value
+    expect(urlClause).toEqual({
+      urls: { some: { url: { contains: 'https://react.dev', mode: 'insensitive' } } },
+    })
+  })
+
+  it('strips colons from the FTS query to avoid invalid tsquery syntax', async () => {
+    mockQueryRaw.mockResolvedValue([])
+    mockFindMany.mockResolvedValue([])
+
+    await GET(makeRequest({ workspaceId: WORKSPACE_ID, q: 'foo:bar' }))
+
+    // The third interpolated value in $queryRaw is sanitizedQ (colon stripped)
+    const rawCallArgs = mockQueryRaw.mock.calls[0]
+    expect(rawCallArgs[3]).toBe('foobar')
   })
 })

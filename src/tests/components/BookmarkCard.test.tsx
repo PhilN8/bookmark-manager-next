@@ -2,9 +2,16 @@
 
 "use client";
 
+import React from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { BookmarkCard } from "@/features/bookmarks/components/BookmarkCard";
 import type { Bookmark } from "@/lib/types";
+
+function renderCard(ui: React.ReactElement) {
+  return render(<TooltipProvider>{ui}</TooltipProvider>);
+}
 
 // Mock bookmarkApi so URL add/remove don't need a real server
 jest.mock("@/lib/api", () => ({
@@ -55,10 +62,11 @@ describe("BookmarkCard", () => {
   ];
 
   it("fires edit and archive actions", async () => {
+    const user = userEvent.setup();
     const onEdit = jest.fn();
     const onDelete = jest.fn();
 
-    const { container } = render(
+    const { container } = renderCard(
       <BookmarkCard
         bookmark={bookmark}
         folders={folders}
@@ -70,36 +78,32 @@ describe("BookmarkCard", () => {
       />,
     );
 
-    // Find buttons - click the edit button (should be one of the icon buttons)
-    // Edit button comes before Delete/Restore button
-    const buttons = Array.from(container.querySelectorAll("button")).filter(
-      (btn) => btn.querySelector("svg"),
-    );
+    // Actions are in a DropdownMenu — the first [aria-haspopup="menu"] is the actions trigger
+    const menuTriggers = container.querySelectorAll('[aria-haspopup="menu"]');
+    const actionsTrigger = menuTriggers[0] as HTMLElement;
+    expect(actionsTrigger).not.toBeNull();
 
-    // The edit button should be clickable and come before trash/restore
-    if (buttons.length > 0) {
-      // First SVG button should be the edit button
-      fireEvent.click(buttons[0]);
-      expect(onEdit).toHaveBeenCalledWith(bookmark);
-    }
+    // Use userEvent to properly fire pointer events that Radix UI requires
+    await user.click(actionsTrigger);
 
-    // Find delete/trash button - look for button with destructive styling
-    const deleteButton = Array.from(container.querySelectorAll("button")).find(
-      (btn) =>
-        btn.className.includes("hover:text-destructive") ||
-        btn.innerHTML.includes("Trash"),
-    );
+    // Click "Edit bookmark" in the dropdown
+    const editItem = await screen.findByText("Edit bookmark");
+    await user.click(editItem);
+    expect(onEdit).toHaveBeenCalledWith(bookmark);
 
-    if (deleteButton) {
-      fireEvent.click(deleteButton);
-      expect(onDelete).toHaveBeenCalledWith("bookmark-1");
-    }
+    // Re-open the menu to click Archive
+    await user.click(actionsTrigger);
+
+    const archiveItem = await screen.findByText("Archive");
+    await user.click(archiveItem);
+    expect(onDelete).toHaveBeenCalledWith("bookmark-1");
   });
 
   it("opens primary URL and supports tag actions", async () => {
+    const user = userEvent.setup();
     const onToggleTag = jest.fn();
 
-    render(
+    const { container } = renderCard(
       <BookmarkCard
         bookmark={bookmark}
         folders={folders}
@@ -117,14 +121,20 @@ describe("BookmarkCard", () => {
       expect.stringContaining("https://primary.com"),
     );
 
-    fireEvent.click(screen.getByText("Design"));
+    // The tag picker is the dashed-border Plus button (second [aria-haspopup="menu"])
+    const menuTriggers = container.querySelectorAll('[aria-haspopup="menu"]');
+    const tagTrigger = menuTriggers[menuTriggers.length - 1] as HTMLElement;
+    await user.click(tagTrigger);
+
+    const designItem = await screen.findByText("Design");
+    await user.click(designItem);
     expect(onToggleTag).toHaveBeenCalledWith("bookmark-1", "tag-2");
   });
 
   it("renders archived state with restore action and URL overflow", () => {
     const onRestore = jest.fn();
 
-    const { container } = render(
+    const { container } = renderCard(
       <BookmarkCard
         bookmark={{
           ...bookmark,
@@ -166,14 +176,15 @@ describe("BookmarkCard", () => {
       fireEvent.click(buttons[0]);
       expect(onRestore).toHaveBeenCalledWith("bookmark-1");
     }
-    expect(screen.getByText("+1 more")).toBeInTheDocument();
+    expect(screen.getByText(/\+\d+ more/)).toBeInTheDocument();
     expect(screen.getAllByText("Work").length).toBeGreaterThan(0);
   });
 
-  it("fires onHardDelete when permanent delete button is clicked in archived state", () => {
+  it("fires onHardDelete when permanent delete button is clicked in archived state", async () => {
+    const user = userEvent.setup();
     const onHardDelete = jest.fn();
 
-    const { container } = render(
+    const { container } = renderCard(
       <BookmarkCard
         bookmark={{ ...bookmark, archived: true }}
         folders={folders}
@@ -187,13 +198,15 @@ describe("BookmarkCard", () => {
       />,
     );
 
-    // The permanently-delete button has title "Permanently delete"
-    const deleteButton = container.querySelector('[title="Permanently delete"]');
-    expect(deleteButton).not.toBeNull();
-    if (deleteButton) {
-      fireEvent.click(deleteButton);
-      expect(onHardDelete).toHaveBeenCalledWith("bookmark-1");
-    }
+    // Actions are in a DropdownMenu — the first [aria-haspopup="menu"] is the actions trigger
+    const menuTriggers = container.querySelectorAll('[aria-haspopup="menu"]');
+    const actionsTrigger = menuTriggers[0] as HTMLElement;
+    await user.click(actionsTrigger);
+
+    // Click "Delete permanently" in the dropdown
+    const deleteItem = await screen.findByText("Delete permanently");
+    await user.click(deleteItem);
+    expect(onHardDelete).toHaveBeenCalledWith("bookmark-1");
   });
 
   describe("URL management", () => {
@@ -202,7 +215,7 @@ describe("BookmarkCard", () => {
     });
 
     it("shows URL manager toggle and reveals remove buttons", async () => {
-      render(
+      renderCard(
         <BookmarkCard
           bookmark={bookmark}
           folders={folders}
@@ -215,7 +228,7 @@ describe("BookmarkCard", () => {
       );
 
       // Toggle is initially visible
-      const toggle = screen.getByText("Manage URLs");
+      const toggle = screen.getByText(/Manage Links/i);
       expect(toggle).toBeInTheDocument();
 
       // Click to open URL manager
@@ -234,7 +247,7 @@ describe("BookmarkCard", () => {
       const onUrlsChanged = jest.fn();
       (bookmarkApi.removeUrl as jest.Mock).mockResolvedValue(undefined);
 
-      render(
+      renderCard(
         <BookmarkCard
           bookmark={bookmark}
           folders={folders}
@@ -248,7 +261,7 @@ describe("BookmarkCard", () => {
       );
 
       await act(async () => {
-        fireEvent.click(screen.getByText("Manage URLs"));
+        fireEvent.click(screen.getByText(/Manage Links/i));
       });
 
       const removeButtons = screen.getAllByRole("button", { name: /Remove URL/i });
@@ -271,7 +284,7 @@ describe("BookmarkCard", () => {
         label: null,
       });
 
-      render(
+      renderCard(
         <BookmarkCard
           bookmark={bookmark}
           folders={folders}
@@ -286,15 +299,15 @@ describe("BookmarkCard", () => {
 
       // Open URL manager
       await act(async () => {
-        fireEvent.click(screen.getByText("Manage URLs"));
+        fireEvent.click(screen.getByText(/Manage Links/i));
       });
 
       // Open add form
       await act(async () => {
-        fireEvent.click(screen.getByText("Add URL"));
+        fireEvent.click(screen.getByText(/Add Link/i));
       });
 
-      const urlInput = screen.getByPlaceholderText("https://example.com");
+      const urlInput = screen.getByPlaceholderText("https://...");
       await act(async () => {
         fireEvent.change(urlInput, { target: { value: "https://new.com" } });
       });
@@ -314,7 +327,7 @@ describe("BookmarkCard", () => {
     });
 
     it("shows validation error for invalid URL", async () => {
-      render(
+      renderCard(
         <BookmarkCard
           bookmark={bookmark}
           folders={folders}
@@ -327,13 +340,13 @@ describe("BookmarkCard", () => {
       );
 
       await act(async () => {
-        fireEvent.click(screen.getByText("Manage URLs"));
+        fireEvent.click(screen.getByText(/Manage Links/i));
       });
       await act(async () => {
-        fireEvent.click(screen.getByText("Add URL"));
+        fireEvent.click(screen.getByText(/Add Link/i));
       });
 
-      const urlInput = screen.getByPlaceholderText("https://example.com");
+      const urlInput = screen.getByPlaceholderText("https://...");
       await act(async () => {
         fireEvent.change(urlInput, { target: { value: "not-a-url" } });
         fireEvent.click(screen.getByText("Add"));

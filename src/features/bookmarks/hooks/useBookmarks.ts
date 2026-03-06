@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useStore } from "@/lib/store";
 import { bookmarkApi } from "@/lib/api";
+import { useDebounce } from "@/lib/useDebounce";
 import type { BookmarkFormData, BookmarkPage } from "@/lib/types";
 
 export function bookmarkKeys(
@@ -22,8 +23,10 @@ export function useBookmarks() {
   const { user, selectedWorkspaceId, selectedFolderId, selectedTagId, showArchived, searchQuery } =
     useStore();
 
+  const debouncedSearchQuery = useDebounce(searchQuery, 400);
+
   const filters = {
-    q: searchQuery || undefined,
+    q: debouncedSearchQuery || undefined,
     folder: selectedFolderId || undefined,
     tag: selectedTagId || undefined,
     archived: showArchived || undefined,

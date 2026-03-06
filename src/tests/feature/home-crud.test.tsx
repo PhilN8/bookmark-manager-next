@@ -173,7 +173,7 @@ describe("Home CRUD interactions", () => {
     const tagsSection = tagsHeading.closest("div")?.parentElement;
     const addTagButton = tagsSection?.querySelector("button");
     if (addTagButton) fireEvent.click(addTagButton);
-    const input = screen.getByPlaceholderText("Tag name");
+    const input = screen.getByPlaceholderText("New tag...");
     fireEvent.change(input, { target: { value: "  New Tag  " } });
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
 
@@ -201,7 +201,9 @@ describe("Home CRUD interactions", () => {
     // Find the React tag badge, then click the delete button next to it
     const reactTag = await screen.findByText("React", {}, { timeout: 5000 });
     const tagGroup = reactTag.closest(".group");
-    const deleteButton = tagGroup?.querySelector("button");
+    const buttons = tagGroup?.querySelectorAll("button");
+    // The delete button is the second button in the group (first is the select button)
+    const deleteButton = buttons && buttons.length > 1 ? buttons[1] : tagGroup?.querySelector('[title*="Delete"]');
     if (deleteButton) fireEvent.click(deleteButton);
 
     await waitFor(() => {

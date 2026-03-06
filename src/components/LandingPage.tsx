@@ -14,6 +14,7 @@ import {
   Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export function LandingPage() {
   return (
@@ -50,6 +51,7 @@ export function LandingPage() {
           </div>
 
           <div className="flex items-center gap-4">
+            <ThemeToggle />
             <Button
               variant="ghost"
               size="sm"
