@@ -6,7 +6,7 @@ import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import Home from "@/app/page";
+import DashboardPage from "@/app/dashboard/page";
 import { useStore } from "@/lib/store";
 import { useRouter } from "next/navigation";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
@@ -157,7 +157,7 @@ describe("Home CRUD interactions", () => {
   });
 
   it("creates a tag with trimmed name", async () => {
-    renderWithQueryClient(<Home />);
+    renderWithQueryClient(<DashboardPage />);
 
     // Wait for LoadingScreen to disappear (indicates initialLoad is complete and auth check passed)
     await waitFor(
@@ -187,7 +187,7 @@ describe("Home CRUD interactions", () => {
   });
 
   it("deletes a tag after confirmation", async () => {
-    renderWithQueryClient(<Home />);
+    renderWithQueryClient(<DashboardPage />);
 
     // Wait for LoadingScreen to disappear
     await waitFor(

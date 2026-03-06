@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import {
-  Link,
   Edit,
   Trash2,
   ExternalLink,
@@ -10,6 +9,8 @@ import {
   ArchiveRestore,
   Plus,
   X,
+  MoreHorizontal,
+  Tag as TagIcon,
 } from "lucide-react";
 import { Bookmark, BookmarkUrl } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -24,7 +25,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface BookmarkCardProps {
   bookmark: Bookmark;
@@ -103,76 +110,137 @@ export function BookmarkCard({
   };
 
   return (
-    <div className="group bg-card border border-border rounded-xl p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
-      <div className="flex items-start justify-between gap-3">
+    <div className="group relative bg-card border border-border rounded-2xl p-6 hover:shadow-xl hover:shadow-black/5 dark:hover:shadow-white/5 transition-all duration-300 card-hover overflow-hidden">
+      {/* Decorative Gradient Accent */}
+      <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-primary/10 transition-colors" />
+
+      <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+          <div className="flex items-center gap-2 mb-1.5">
+            {bookmark.folder && (
+              <Badge
+                variant="outline"
+                className="h-5 px-1.5 font-normal text-[10px] uppercase tracking-wider text-muted-foreground border-muted-foreground/20"
+              >
+                {bookmark.folder.name}
+              </Badge>
+            )}
+          </div>
+          <h3 className="font-semibold text-lg leading-snug text-foreground tracking-tight group-hover:text-primary transition-colors">
             {bookmark.title}
           </h3>
           {bookmark.description && (
-            <p className="text-sm text-muted-foreground mt-1.5 line-clamp-2">
+            <p className="text-sm text-muted-foreground mt-2 line-clamp-2 leading-relaxed">
               {bookmark.description}
             </p>
           )}
         </div>
 
-        <div className="flex items-center gap-1 transition-opacity duration-200">
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-full"
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+                Actions
+              </DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => onEdit(bookmark)}>
+                <Edit className="w-4 h-4 mr-2" />
+                Edit bookmark
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator />
+
+              <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+                Organize
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {/* Folders Submenu */}
+              {folders.map((folder) => (
+                <DropdownMenuItem
+                  key={folder.id}
+                  onClick={() => onMoveFolder(bookmark.id, folder.id)}
+                  className={cn(
+                    bookmark.folderId === folder.id && "bg-muted font-medium",
+                  )}
+                >
+                  <Folder className="w-4 h-4 mr-2" />
+                  {folder.name}
+                </DropdownMenuItem>
+              ))}
+
+              <DropdownMenuSeparator />
+
+              {bookmark.archived ? (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => onRestore?.(bookmark.id)}
+                    className="text-green-600 focus:text-green-600 focus:bg-green-50"
+                  >
+                    <ArchiveRestore className="w-4 h-4 mr-2" />
+                    Restore
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onHardDelete?.(bookmark.id)}
+                    className="text-destructive focus:text-destructive focus:bg-destructive/5"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete permanently
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <DropdownMenuItem
+                  onClick={() => onDelete(bookmark.id)}
+                  className="text-destructive focus:text-destructive focus:bg-destructive/5"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Archive
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           {primaryUrl && (
-            <Button variant="ghost" size="icon" asChild>
-              <a
-                href={primaryUrl.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                title="Open URL"
-              >
-                <ExternalLink className="w-4 h-4" />
-              </a>
-            </Button>
-          )}
-          <Button variant="ghost" size="icon" onClick={() => onEdit(bookmark)}>
-            <Edit className="w-4 h-4" />
-          </Button>
-          {bookmark.archived ? (
-            <>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => onRestore?.(bookmark.id)}
-                className="hover:text-green-500"
-                title="Restore bookmark"
-              >
-                <ArchiveRestore className="w-4 h-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => onHardDelete?.(bookmark.id)}
-                className="hover:text-destructive"
-                title="Permanently delete"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </>
-          ) : (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onDelete(bookmark.id)}
-              className="hover:text-destructive"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="h-8 w-8 rounded-full shadow-sm"
+                  asChild
+                >
+                  <a
+                    href={primaryUrl.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Open link</TooltipContent>
+            </Tooltip>
           )}
         </div>
       </div>
 
       {/* URL list */}
       {bookmark.urls.length > 0 && (
-        <div className="mt-4 space-y-1.5">
-          {(showUrlManager ? bookmark.urls : bookmark.urls.slice(0, 3)).map(
+        <div className="mt-5 space-y-2 border-t border-border/50 pt-4">
+          {(showUrlManager ? bookmark.urls : bookmark.urls.slice(0, 2)).map(
             (url: BookmarkUrl) => (
-              <div key={url.id} className="flex items-center gap-2 text-sm">
-                <Link className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <div
+                key={url.id}
+                className="group/url flex items-center gap-2.5 text-xs"
+              >
+                <div className="w-1.5 h-1.5 rounded-full bg-border shrink-0 group-hover/url:bg-primary transition-colors" />
                 <span
                   className={cn(
                     "truncate text-muted-foreground flex-1",
@@ -182,21 +250,20 @@ export function BookmarkCard({
                   {url.label || url.url}
                 </span>
                 {url.isPrimary && (
-                  <span className="text-[10px] bg-secondary text-muted-foreground px-1.5 py-0.5 rounded-full shrink-0">
+                  <span className="text-[9px] font-semibold uppercase tracking-widest text-primary/60 px-1.5 py-0.5 rounded-md bg-primary/5 shrink-0">
                     Primary
                   </span>
                 )}
                 {showUrlManager && (
                   <Button
                     variant="ghost"
-                    size="icon-xs"
+                    size="icon"
                     className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive shrink-0"
                     title="Remove URL"
                     disabled={
                       bookmark.urls.length <= 1 || removingUrlId === url.id
                     }
                     onClick={() => handleRemoveUrl(url.id)}
-                    aria-label={`Remove URL ${url.label || url.url}`}
                   >
                     <X className="h-3 w-3" />
                   </Button>
@@ -204,150 +271,131 @@ export function BookmarkCard({
               </div>
             ),
           )}
-          {!showUrlManager && bookmark.urls.length > 3 && (
-            <p className="text-xs text-muted-foreground">
-              +{bookmark.urls.length - 3} more
-            </p>
-          )}
-          {/* Manage URLs toggle */}
-          <button
-            type="button"
-            onClick={() => {
-              setShowUrlManager((v) => !v);
-              setAddingUrl(false);
-              setUrlError(null);
-            }}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors mt-1"
-          >
-            {showUrlManager ? "Hide URL manager" : "Manage URLs"}
-          </button>
+
+          <div className="flex items-center justify-between gap-4 mt-1">
+            <button
+              type="button"
+              onClick={() => {
+                setShowUrlManager((v) => !v);
+                setAddingUrl(false);
+                setUrlError(null);
+              }}
+              className="text-[10px] font-medium text-muted-foreground hover:text-primary uppercase tracking-wider transition-colors"
+            >
+              {showUrlManager
+                ? "Close Manager"
+                : `${bookmark.urls.length > 2 ? `+${bookmark.urls.length - 2} more · ` : ""}Manage Links`}
+            </button>
+
+            {showUrlManager && !addingUrl && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                onClick={() => setAddingUrl(true)}
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                Add Link
+              </Button>
+            )}
+          </div>
         </div>
       )}
 
       {/* Inline add-URL form */}
-      {showUrlManager && (
-        <div className="mt-2 space-y-2">
-          {addingUrl ? (
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
-                <Input
-                  type="url"
-                  placeholder="https://example.com"
-                  value={newUrl}
-                  onChange={(e) => setNewUrl(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleAddUrl();
-                    if (e.key === "Escape") setAddingUrl(false);
-                  }}
-                  className="h-7 text-xs flex-1"
-                  autoFocus
-                />
-                <Input
-                  type="text"
-                  placeholder="Label"
-                  value={newUrlLabel}
-                  onChange={(e) => setNewUrlLabel(e.target.value)}
-                  className="h-7 text-xs w-24"
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-7 text-xs px-2"
-                  onClick={handleAddUrl}
-                  disabled={isPendingUrl}
-                >
-                  {isPendingUrl ? "Adding…" : "Add"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  className="h-7 w-7"
-                  onClick={() => {
-                    setAddingUrl(false);
-                    setUrlError(null);
-                  }}
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-              {urlError && (
-                <p className="text-xs text-destructive">{urlError}</p>
-              )}
-            </div>
-          ) : (
+      {showUrlManager && addingUrl && (
+        <div className="mt-3 p-3 rounded-xl bg-muted/30 border border-border/50 space-y-2">
+          <div className="flex items-center gap-2">
+            <Input
+              type="url"
+              placeholder="https://..."
+              value={newUrl}
+              onChange={(e) => setNewUrl(e.target.value)}
+              className="h-8 text-xs flex-1 bg-background"
+              autoFocus
+            />
+            <Input
+              type="text"
+              placeholder="Label"
+              value={newUrlLabel}
+              onChange={(e) => setNewUrlLabel(e.target.value)}
+              className="h-8 text-xs w-24 bg-background"
+            />
+          </div>
+          <div className="flex items-center justify-end gap-2">
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => setAddingUrl(true)}
+              className="h-7 text-[10px] uppercase"
+              onClick={() => setAddingUrl(false)}
             >
-              <Plus className="w-3 h-3 mr-1" />
-              Add URL
+              Cancel
             </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-7 px-3 text-[10px] uppercase tracking-wider"
+              onClick={handleAddUrl}
+              disabled={isPendingUrl}
+            >
+              {isPendingUrl ? "Adding…" : "Add"}
+            </Button>
+          </div>
+          {urlError && (
+            <p className="text-[10px] text-destructive font-medium px-1">
+              {urlError}
+            </p>
           )}
         </div>
       )}
 
-      {bookmark.tags.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-1.5">
-          {bookmark.tags.map(({ tag }) => (
-            <Badge key={tag.id} variant="secondary" className="text-xs">
+      {/* Tags section */}
+      <div className="mt-6 flex flex-wrap gap-2">
+        {bookmark.tags.length > 0 &&
+          bookmark.tags.map(({ tag }) => (
+            <Badge
+              key={tag.id}
+              variant="secondary"
+              className="rounded-lg px-2 py-0.5 text-[10px] font-medium bg-muted/50 text-muted-foreground border-transparent hover:border-border transition-colors"
+            >
+              <TagIcon className="w-2.5 h-2.5 mr-1 opacity-50" />
               {tag.name}
             </Badge>
           ))}
-        </div>
-      )}
 
-      {bookmark.folder && (
-        <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Folder className="w-3 h-3" />
-          <span>{bookmark.folder.name}</span>
-        </div>
-      )}
-
-      <div className="mt-3 flex items-center gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground">
-              <Folder className="w-3 h-3 mr-1" />
-              {bookmark.folder ? "Move to..." : "Add to folder..."}
-            </Button>
+            <button className="flex items-center justify-center w-6 h-6 rounded-lg border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary transition-all">
+              <Plus className="w-3 h-3" />
+            </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuItem
-              onClick={() => onMoveFolder(bookmark.id, "")}
-            >
-              No folder
-            </DropdownMenuItem>
+          <DropdownMenuContent align="start" className="w-40">
+            <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              Toggle Tags
+            </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {folders.map((folder) => (
-              <DropdownMenuItem
-                key={folder.id}
-                onClick={() => onMoveFolder(bookmark.id, folder.id)}
-              >
-                {folder.name}
-              </DropdownMenuItem>
-            ))}
+            {tags.map((tag) => {
+              const hasTag = bookmark.tags.some((t) => t.tag.id === tag.id);
+              return (
+                <DropdownMenuItem
+                  key={tag.id}
+                  onClick={() => onToggleTag(bookmark.id, tag.id)}
+                  className="flex items-center justify-between"
+                >
+                  <span className="flex items-center">
+                    <TagIcon className="w-3 h-3 mr-2" />
+                    {tag.name}
+                  </span>
+                  {hasTag && (
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                  )}
+                </DropdownMenuItem>
+              );
+            })}
           </DropdownMenuContent>
         </DropdownMenu>
-      </div>
-
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {tags.map((tag) => {
-          const hasTag = bookmark.tags.some((t) => t.tag.id === tag.id);
-          return (
-            <Badge
-              key={tag.id}
-              variant={hasTag ? "default" : "secondary"}
-              className="cursor-pointer text-xs"
-              onClick={() => onToggleTag(bookmark.id, tag.id)}
-            >
-              {tag.name}
-            </Badge>
-          );
-        })}
       </div>
     </div>
   );

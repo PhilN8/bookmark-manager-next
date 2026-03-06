@@ -20,15 +20,20 @@ export function useTags() {
     onSuccess: invalidate,
   });
 
-  const deleteTag = useMutation({
+  const deleteTagMutation = useMutation({
     mutationFn: (id: string) => tagApi.delete(id),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+    },
   });
 
   return {
     tags: query.data ?? [],
     isLoading: query.isLoading,
-    createTag,
-    deleteTag,
+    createTag: (name: string, options?: Parameters<typeof createTag.mutate>[1]) => createTag.mutate(name, options),
+    deleteTag: (id: string, options?: Parameters<typeof deleteTagMutation.mutate>[1]) => deleteTagMutation.mutate(id, options),
+    isCreating: createTag.isPending,
+    isDeleting: deleteTagMutation.isPending,
   };
 }
