@@ -30,13 +30,6 @@ export function useAuth() {
     }
   }, [user, setUser]);
 
-  // Redirect to login when session fetch definitively fails
-  useEffect(() => {
-    if (!sessionQuery.isLoading && sessionQuery.isError) {
-      router.push("/login");
-    }
-  }, [sessionQuery.isLoading, sessionQuery.isError, router]);
-
   const logoutMutation = useMutation({
     mutationFn: () => authApi.signOut(),
     onSuccess: () => {

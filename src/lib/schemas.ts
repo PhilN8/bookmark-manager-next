@@ -47,6 +47,21 @@ export const createTagSchema = z.object({
   workspaceId: z.string().optional(),
 })
 
+// Auth validation
+export const loginSchema = z.object({
+  email: z.email('Invalid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+})
+
+export const registerSchema = z.object({
+  email: z.email('Invalid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  confirmPassword: z.string().min(8, 'Password must be at least 8 characters'),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
 // Sanitize search query - prevent injection and tsquery syntax errors
 export function sanitizeSearchQuery(query: string): string {
   return query

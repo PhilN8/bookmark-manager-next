@@ -1,11 +1,14 @@
 "use client";
 
-import { Archive, Loader2, Plus } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { useBookmarks } from "../hooks/useBookmarks";
 import { useFolders } from "@/features/folders/hooks/useFolders";
+import { useTags } from "@/features/tags/hooks/useTags";
+import { useStore } from "@/lib/store";
 import { BookmarkCard } from "./BookmarkCard";
+import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
-import type { Bookmark, Folder } from "@/lib/types";
+import type { Bookmark, Folder, Tag } from "@/lib/types";
 
 interface ConfirmAction {
   type: "archive" | "restore" | "delete";
@@ -35,50 +38,68 @@ export function BookmarkList({
     toggleTag,
   } = useBookmarks();
   const { folders } = useFolders();
+  const { tags } = useTags();
+  const { searchQuery, showArchived } = useStore();
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative">
+            <Loader2 className="w-10 h-10 animate-spin text-primary" />
+            <Sparkles className="absolute -top-1 -right-1 w-4 h-4 text-primary animate-pulse" />
+          </div>
+          <p className="text-sm font-medium text-muted-foreground animate-pulse">
+            Loading your collection...
+          </p>
         </div>
       </div>
     );
   }
 
   if (bookmarks.length === 0) {
+    if (searchQuery) {
+      return (
+        <EmptyState
+          title="No results found"
+          description={`We couldn't find any bookmarks matching "${searchQuery}". Try a different search term.`}
+          icon="search"
+        />
+      );
+    }
+
+    if (showArchived) {
+      return (
+        <EmptyState
+          title="Archive is empty"
+          description="Your archived bookmarks will appear here. Archiving helps keep your main workspace tidy."
+          icon="archive"
+        />
+      );
+    }
+
     return (
-      <div className="flex flex-col items-center justify-center h-full">
-        <div className="w-24 h-24 bg-linear-to-br from-accent to-secondary rounded-3xl flex items-center justify-center mb-6 shadow-lg">
-          <Archive className="w-12 h-12 text-muted-foreground" />
-        </div>
-        <p className="text-xl font-semibold text-foreground mb-2">
-          No bookmarks yet
-        </p>
-        <p className="text-sm text-muted-foreground mb-6">
-          Start building your collection
-        </p>
-        <Button
-          className="bg-linear-to-r from-primary to-ring hover:opacity-90"
-          onClick={onAddNew}
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add your first bookmark
-        </Button>
-      </div>
+      <EmptyState
+        title="Your workspace is empty"
+        description="Start building your personal library by adding your first bookmark. Organize with folders and tags."
+        icon="bookmarks"
+        action={{
+          label: "Add your first bookmark",
+          onClick: onAddNew,
+        }}
+      />
     );
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="flex flex-col gap-10">
+      <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {bookmarks.map((bookmark: Bookmark) => (
           <BookmarkCard
             key={bookmark.id}
             bookmark={bookmark}
             folders={folders.map((f: Folder) => ({ id: f.id, name: f.name }))}
-            tags={[]}
+            tags={tags.map((t: Tag) => ({ id: t.id, name: t.name }))}
             onEdit={onEditBookmark}
             onDelete={(id) => {
               const bm = bookmarks.find((b: Bookmark) => b.id === id);
